@@ -6,6 +6,7 @@ const initSchema = require('./db/schema')
 const authRoutes = require('./routes/auth')
 const exercisesRoutes = require('./routes/exercises')
 const sessionsRoutes = require('./routes/sessions')
+const statsRoutes = require('./routes/stats')
 
 const app = express()
 app.use(cors())
@@ -14,6 +15,7 @@ app.use(express.json())
 app.use('/api/auth', authRoutes)
 app.use('/api/exercises', exercisesRoutes)
 app.use('/api/sessions', sessionsRoutes)
+app.use('/api/stats', statsRoutes)
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
