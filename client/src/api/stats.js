@@ -24,3 +24,13 @@ export async function getActivity(token) {
   const res = await fetch(`${API}/api/stats/activity`, { headers: authHeaders(token) })
   return handleResponse(res)
 }
+
+export async function getPRs(token) {
+  const res = await fetch(`${API}/api/stats/prs`, { headers: authHeaders(token) })
+  return handleResponse(res)
+}
+
+export async function getRecentSessions(token) {
+  const res = await fetch(`${API}/api/sessions/recent`, { headers: authHeaders(token) })
+  return handleResponse(res)
+}

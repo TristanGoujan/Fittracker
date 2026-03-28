@@ -75,6 +75,40 @@ router.post('/', async (req, res) => {
   }
 })
 
+// GET /api/sessions/recent — 6 dernières séances avec volume + liste d'exercices
+router.get('/recent', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `WITH recent AS (
+         SELECT id, name, session_date, duration_min, created_at
+         FROM workout_sessions
+         WHERE user_id = $1
+         ORDER BY session_date DESC, created_at DESC
+         LIMIT 6
+       )
+       SELECT
+         r.id,
+         r.name,
+         r.session_date::text,
+         r.duration_min,
+         r.created_at,
+         COALESCE(SUM(s.weight_kg * s.reps), 0)::float AS volume,
+         ARRAY_REMOVE(ARRAY_AGG(DISTINCT e.name), NULL) AS exercises
+       FROM recent r
+       LEFT JOIN session_exercises se ON se.session_id = r.id
+       LEFT JOIN exercises e ON e.id = se.exercise_id
+       LEFT JOIN sets s ON s.session_exercise_id = se.id
+       GROUP BY r.id, r.name, r.session_date, r.duration_min, r.created_at
+       ORDER BY r.session_date DESC, r.created_at DESC`,
+      [req.user.id]
+    )
+    res.json(result.rows)
+  } catch (err) {
+    console.error('Erreur séances récentes:', err)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
 // DELETE /api/sessions/:id
 router.delete('/:id', async (req, res) => {
   try {

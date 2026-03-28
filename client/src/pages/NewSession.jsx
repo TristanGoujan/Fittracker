@@ -13,6 +13,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const initialState = {
   name: '',
   date: new Date().toISOString().split('T')[0],
+  duration_min: '',
   exercises: [],
 }
 
@@ -22,6 +23,8 @@ function reducer(state, action) {
       return { ...state, name: action.value }
     case 'SET_DATE':
       return { ...state, date: action.value }
+    case 'SET_DURATION':
+      return { ...state, duration_min: action.value }
     case 'ADD_EXERCISE':
       return {
         ...state,
@@ -126,6 +129,7 @@ export default function NewSession() {
       await createSession(token, {
         name: state.name,
         session_date: state.date,
+        duration_min: state.duration_min !== '' ? Number(state.duration_min) : null,
         exercises: state.exercises.map((ex, i) => ({
           exercise_id: ex.exercise_id,
           rest_seconds: ex.rest_seconds,
@@ -153,8 +157,8 @@ export default function NewSession() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Nom + date */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1">
               <label className="block text-zinc-400 text-sm mb-1.5">Nom de la séance</label>
               <input
                 type="text"
@@ -172,6 +176,17 @@ export default function NewSession() {
                 onChange={(e) => dispatch({ type: 'SET_DATE', value: e.target.value })}
                 required
                 className="w-full bg-zinc-900 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-zinc-400 text-sm mb-1.5">Durée (min)</label>
+              <input
+                type="number"
+                value={state.duration_min}
+                onChange={(e) => dispatch({ type: 'SET_DURATION', value: e.target.value })}
+                className="w-full bg-zinc-900 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-zinc-600"
+                placeholder="60"
+                min="1"
               />
             </div>
           </div>
