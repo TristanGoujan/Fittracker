@@ -115,4 +115,28 @@ router.get('/prs', async (req, res) => {
   }
 })
 
+// GET /api/stats/progress/:exoId
+router.get('/progress/:exoId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         ws.session_date::text  AS date,
+         MAX(s.weight_kg)::float AS weight_kg
+       FROM workout_sessions ws
+       JOIN session_exercises se ON se.session_id = ws.id
+       JOIN sets s ON s.session_exercise_id = se.id
+       WHERE ws.user_id = $1
+         AND se.exercise_id = $2
+         AND s.weight_kg IS NOT NULL
+       GROUP BY ws.session_date
+       ORDER BY ws.session_date ASC`,
+      [req.user.id, req.params.exoId]
+    )
+    res.json(result.rows)
+  } catch (err) {
+    console.error('Erreur progression:', err)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
 module.exports = router

@@ -25,6 +25,13 @@ export async function createSession(token, body) {
   return handleResponse(res)
 }
 
+export async function getSession(token, id) {
+  const res = await fetch(`${API}/api/sessions/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  return handleResponse(res)
+}
+
 export async function deleteSession(token, id) {
   const res = await fetch(`${API}/api/sessions/${id}`, {
     method: 'DELETE',

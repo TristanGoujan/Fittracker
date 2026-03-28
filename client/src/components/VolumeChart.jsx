@@ -39,27 +39,23 @@ export default function VolumeChart({ data7, data30 }) {
 
   const rawData = period === 7 ? data7 : data30
 
-  // Groupes musculaires disponibles dans les données
   const muscleGroups = useMemo(() => {
     const groups = [...new Set(rawData.map((d) => d.muscle_group))].sort()
     return ['Tous', ...groups]
   }, [rawData])
 
-  // Si le filtre actuel n'existe plus dans les nouvelles données, reset
   useEffect(() => {
     if (muscleFilter !== 'Tous' && !muscleGroups.includes(muscleFilter)) {
       setMuscleFilter('Tous')
     }
   }, [muscleGroups, muscleFilter])
 
-  // Données agrégées selon le filtre
   const chartData = useMemo(() => {
     const filtered =
       muscleFilter === 'Tous'
         ? rawData
         : rawData.filter((d) => d.muscle_group === muscleFilter)
 
-    // Agrège par date
     const byDate = {}
     filtered.forEach(({ date, volume }) => {
       byDate[date] = (byDate[date] ?? 0) + volume
@@ -72,10 +68,15 @@ export default function VolumeChart({ data7, data30 }) {
     if (!canvasRef.current) return
     chartRef.current?.destroy()
 
+    const style = getComputedStyle(document.documentElement)
+    const ac   = style.getPropertyValue('--ac').trim()    || '59,130,246'
+    const acLt = style.getPropertyValue('--ac-lt').trim() || '147,197,253'
+
+    const defaultColor = `rgba(${ac},0.85)`
     const color =
       muscleFilter === 'Tous'
-        ? 'rgba(99, 102, 241, 0.85)'
-        : (MUSCLE_COLORS[muscleFilter] ?? 'rgba(99, 102, 241, 0.85)')
+        ? defaultColor
+        : (MUSCLE_COLORS[muscleFilter] ?? defaultColor)
 
     chartRef.current = new Chart(canvasRef.current, {
       type: 'bar',
@@ -85,10 +86,12 @@ export default function VolumeChart({ data7, data30 }) {
           {
             data: chartData.map((d) => d.volume),
             backgroundColor: chartData.map((d) =>
-              d.volume > 0 ? color : color.replace('0.85', '0.15')
+              d.volume > 0 ? color : color.replace('0.85', '0.1')
             ),
             borderRadius: 4,
             borderSkipped: false,
+            barPercentage: 1,
+            categoryPercentage: 1,
           },
         ],
       },
@@ -98,6 +101,11 @@ export default function VolumeChart({ data7, data30 }) {
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: 'rgba(8,15,31,0.95)',
+            borderColor: `rgba(${ac},0.2)`,
+            borderWidth: 1,
+            titleColor: `rgba(${acLt},0.6)`,
+            bodyColor: '#fff',
             callbacks: {
               label: (ctx) => ` ${Math.round(ctx.raw).toLocaleString('fr-FR')} kg`,
             },
@@ -105,13 +113,13 @@ export default function VolumeChart({ data7, data30 }) {
         },
         scales: {
           x: {
-            grid: { color: 'rgba(255,255,255,0.04)' },
-            ticks: { color: '#71717a', font: { size: 11 } },
+            grid: { color: `rgba(${ac},0.05)` },
+            ticks: { color: `rgba(${acLt},0.3)`, font: { size: 11 } },
           },
           y: {
-            grid: { color: 'rgba(255,255,255,0.04)' },
+            grid: { color: `rgba(${ac},0.05)` },
             ticks: {
-              color: '#71717a',
+              color: `rgba(${acLt},0.3)`,
               font: { size: 11 },
               callback: (v) => `${v} kg`,
             },
@@ -125,18 +133,26 @@ export default function VolumeChart({ data7, data30 }) {
   }, [chartData, period, muscleFilter])
 
   return (
-    <div className="bg-zinc-900 rounded-xl p-6">
+    <div
+      className="rounded-xl p-6"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.1)' }}
+    >
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-        <h3 className="text-white font-semibold">Volume d'entraînement</h3>
+        <h3 className="text-white font-bold text-sm uppercase tracking-wider">Volume d'entraînement</h3>
         <div className="flex items-center gap-3 flex-wrap">
           {/* Filtre groupe musculaire */}
           <select
             value={muscleFilter}
             onChange={(e) => setMuscleFilter(e.target.value)}
-            className="bg-zinc-800 text-zinc-300 text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="text-sm rounded-lg px-3 py-1.5 outline-none transition-all"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(var(--ac),0.15)',
+              color: 'rgba(var(--ac-lt),0.7)',
+            }}
           >
             {muscleGroups.map((g) => (
-              <option key={g} value={g}>{g}</option>
+              <option key={g} value={g} style={{ background: '#080f1f' }}>{g}</option>
             ))}
           </select>
           {/* Toggle période */}
@@ -145,9 +161,12 @@ export default function VolumeChart({ data7, data30 }) {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`text-sm px-3 py-1 rounded-lg transition-colors ${
-                  period === p ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-white'
-                }`}
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                style={
+                  period === p
+                    ? { background: 'rgba(var(--ac-d),0.25)', color: 'rgb(var(--ac-lt))', border: '1px solid rgba(var(--ac),0.4)' }
+                    : { color: 'rgba(var(--ac-lt),0.3)', border: '1px solid transparent' }
+                }
               >
                 {p}j
               </button>

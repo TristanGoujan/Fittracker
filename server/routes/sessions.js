@@ -9,15 +9,131 @@ router.use(authMiddleware)
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, name, session_date, duration_min, created_at
-       FROM workout_sessions
-       WHERE user_id = $1
-       ORDER BY session_date DESC, created_at DESC`,
+      `SELECT
+         ws.id,
+         ws.name,
+         ws.session_date::text,
+         ws.duration_min,
+         ws.created_at,
+         COALESCE(SUM(s.weight_kg * s.reps), 0)::float AS volume,
+         COUNT(DISTINCT se.exercise_id)::int            AS exercise_count
+       FROM workout_sessions ws
+       LEFT JOIN session_exercises se ON se.session_id = ws.id
+       LEFT JOIN sets s ON s.session_exercise_id = se.id
+       WHERE ws.user_id = $1
+       GROUP BY ws.id
+       ORDER BY ws.session_date DESC, ws.created_at DESC`,
       [req.user.id]
     )
     res.json(result.rows)
   } catch (err) {
     console.error('Erreur liste séances:', err)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// GET /api/sessions/recent — 6 dernières séances avec volume + liste d'exercices
+router.get('/recent', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `WITH recent AS (
+         SELECT id, name, session_date, duration_min, created_at
+         FROM workout_sessions
+         WHERE user_id = $1
+         ORDER BY session_date DESC, created_at DESC
+         LIMIT 6
+       )
+       SELECT
+         r.id,
+         r.name,
+         r.session_date::text,
+         r.duration_min,
+         r.created_at,
+         COALESCE(SUM(s.weight_kg * s.reps), 0)::float AS volume,
+         ARRAY_REMOVE(ARRAY_AGG(DISTINCT e.name), NULL) AS exercises
+       FROM recent r
+       LEFT JOIN session_exercises se ON se.session_id = r.id
+       LEFT JOIN exercises e ON e.id = se.exercise_id
+       LEFT JOIN sets s ON s.session_exercise_id = se.id
+       GROUP BY r.id, r.name, r.session_date, r.duration_min, r.created_at
+       ORDER BY r.session_date DESC, r.created_at DESC`,
+      [req.user.id]
+    )
+    res.json(result.rows)
+  } catch (err) {
+    console.error('Erreur séances récentes:', err)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// GET /api/sessions/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const rows = await pool.query(
+      `SELECT
+         ws.id, ws.name, ws.session_date::text, ws.duration_min, ws.notes,
+         se.id          AS se_id,
+         se.order_index AS se_order,
+         se.rest_seconds,
+         e.id           AS exercise_id,
+         e.name         AS exercise_name,
+         mg.name        AS muscle_group,
+         s.id           AS set_id,
+         s.set_number,
+         s.weight_kg::float,
+         s.reps,
+         s.duration_sec
+       FROM workout_sessions ws
+       JOIN session_exercises se ON se.session_id = ws.id
+       JOIN exercises e ON e.id = se.exercise_id
+       LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id
+       LEFT JOIN sets s ON s.session_exercise_id = se.id
+       WHERE ws.id = $1 AND ws.user_id = $2
+       ORDER BY se.order_index, s.set_number`,
+      [req.params.id, req.user.id]
+    )
+
+    if (rows.rows.length === 0) {
+      return res.status(404).json({ error: 'Séance non trouvée' })
+    }
+
+    const first = rows.rows[0]
+    const session = {
+      id: first.id,
+      name: first.name,
+      session_date: first.session_date,
+      duration_min: first.duration_min,
+      notes: first.notes,
+      exercises: [],
+    }
+
+    const exMap = {}
+    rows.rows.forEach((row) => {
+      if (!exMap[row.se_id]) {
+        const ex = {
+          se_id: row.se_id,
+          exercise_id: row.exercise_id,
+          exercise_name: row.exercise_name,
+          muscle_group: row.muscle_group,
+          rest_seconds: row.rest_seconds,
+          sets: [],
+        }
+        session.exercises.push(ex)
+        exMap[row.se_id] = ex
+      }
+      if (row.set_id) {
+        exMap[row.se_id].sets.push({
+          set_number: row.set_number,
+          weight_kg: row.weight_kg,
+          reps: row.reps,
+          duration_sec: row.duration_sec,
+        })
+      }
+    })
+
+    res.json(session)
+  } catch (err) {
+    console.error('Erreur détail séance:', err)
     res.status(500).json({ error: 'Erreur serveur' })
   }
 })
@@ -72,40 +188,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' })
   } finally {
     client.release()
-  }
-})
-
-// GET /api/sessions/recent — 6 dernières séances avec volume + liste d'exercices
-router.get('/recent', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `WITH recent AS (
-         SELECT id, name, session_date, duration_min, created_at
-         FROM workout_sessions
-         WHERE user_id = $1
-         ORDER BY session_date DESC, created_at DESC
-         LIMIT 6
-       )
-       SELECT
-         r.id,
-         r.name,
-         r.session_date::text,
-         r.duration_min,
-         r.created_at,
-         COALESCE(SUM(s.weight_kg * s.reps), 0)::float AS volume,
-         ARRAY_REMOVE(ARRAY_AGG(DISTINCT e.name), NULL) AS exercises
-       FROM recent r
-       LEFT JOIN session_exercises se ON se.session_id = r.id
-       LEFT JOIN exercises e ON e.id = se.exercise_id
-       LEFT JOIN sets s ON s.session_exercise_id = se.id
-       GROUP BY r.id, r.name, r.session_date, r.duration_min, r.created_at
-       ORDER BY r.session_date DESC, r.created_at DESC`,
-      [req.user.id]
-    )
-    res.json(result.rows)
-  } catch (err) {
-    console.error('Erreur séances récentes:', err)
-    res.status(500).json({ error: 'Erreur serveur' })
   }
 })
 

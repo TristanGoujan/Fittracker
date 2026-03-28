@@ -30,73 +30,104 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold text-white text-center mb-2">FitTracker</h1>
-        <p className="text-zinc-500 text-center mb-8">Crée ton compte</p>
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 45%, #050c1a 75%, #020810 100%)' }}
+    >
+      {/* Glow blob */}
+      <div
+        className="fixed pointer-events-none"
+        style={{
+          width: '600px',
+          height: '600px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(var(--ac-d),0.12) 0%, transparent 70%)',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -60%)',
+        }}
+      />
 
-        <form onSubmit={handleSubmit} className="bg-zinc-900 rounded-2xl p-8 space-y-5">
+      <div className="w-full max-w-sm relative">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-black tracking-tight mb-2">
+            <span style={{ color: 'rgb(var(--ac-l))' }}>Fit</span>
+            <span className="text-white">Tracker</span>
+          </h1>
+          <p className="text-sm" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>
+            Crée ton compte
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-2xl p-8 space-y-5"
+          style={{
+            background: 'rgba(8, 15, 31, 0.85)',
+            border: '1px solid rgba(var(--ac),0.15)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
           {error && (
-            <p className="text-red-400 text-sm bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-3">
+            <p
+              className="text-sm rounded-xl px-4 py-3"
+              style={{ color: '#fca5a5', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
               {error}
             </p>
           )}
 
-          <div>
-            <label className="block text-zinc-400 text-sm mb-1.5">Nom d'utilisateur</label>
-            <input
-              type="text"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              required
-              autoComplete="username"
-              className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-zinc-600"
-              placeholder="johndoe"
-            />
-          </div>
-
-          <div>
-            <label className="block text-zinc-400 text-sm mb-1.5">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              required
-              autoComplete="email"
-              className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-zinc-600"
-              placeholder="ton@email.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-zinc-400 text-sm mb-1.5">Mot de passe</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="w-full bg-zinc-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-zinc-600"
-              placeholder="8 caractères minimum"
-            />
-          </div>
+          {[
+            { label: "Nom d'utilisateur", name: 'username', type: 'text', placeholder: 'johndoe', autoComplete: 'username' },
+            { label: 'Email', name: 'email', type: 'email', placeholder: 'ton@email.com', autoComplete: 'email' },
+            { label: 'Mot de passe', name: 'password', type: 'password', placeholder: '8 caractères minimum', autoComplete: 'new-password' },
+          ].map(({ label, name, type, placeholder, autoComplete }) => (
+            <div key={name}>
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'rgba(var(--ac-lt),0.45)' }}>
+                {label}
+              </label>
+              <input
+                type={type}
+                name={name}
+                value={form[name]}
+                onChange={handleChange}
+                required
+                minLength={name === 'password' ? 8 : undefined}
+                autoComplete={autoComplete}
+                placeholder={placeholder}
+                className="w-full text-white rounded-xl px-4 py-3 outline-none text-sm placeholder:opacity-20 transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--ac),0.12)' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--ac),0.4)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--ac),0.12)' }}
+              />
+            </div>
+          ))}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg py-3 transition-colors"
+            className="w-full text-white font-bold rounded-xl py-3 text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-2"
+            style={{
+              background: 'linear-gradient(135deg, rgb(var(--ac-d)), rgb(var(--ac-dd)))',
+              boxShadow: '0 4px 20px rgba(var(--ac-d),0.35)',
+            }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = '0 4px 28px rgba(var(--ac-d),0.55)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(var(--ac-d),0.35)' }}
           >
-            {loading ? 'Création...' : 'Créer mon compte'}
+            {loading ? 'Création…' : 'Créer mon compte'}
           </button>
         </form>
 
-        <p className="text-zinc-500 text-center mt-6 text-sm">
+        <p className="text-center mt-5 text-sm" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
           Déjà un compte ?{' '}
-          <Link to="/login" className="text-indigo-400 hover:text-indigo-300">
+          <Link
+            to="/login"
+            className="font-semibold transition-colors"
+            style={{ color: 'rgb(var(--ac-l))' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgb(var(--ac-lt))' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgb(var(--ac-l))' }}
+          >
             Se connecter
           </Link>
         </p>

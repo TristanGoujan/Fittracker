@@ -61,6 +61,17 @@ async function initSchema() {
     )
   `)
 
+  // Migration 001 — colonnes de profil utilisateur
+  await pool.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS avatar_url    TEXT,
+      ADD COLUMN IF NOT EXISTS weight_kg     NUMERIC(5,2),
+      ADD COLUMN IF NOT EXISTS height_cm     INTEGER,
+      ADD COLUMN IF NOT EXISTS birth_date    DATE,
+      ADD COLUMN IF NOT EXISTS goal          VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS weekly_target INTEGER
+  `)
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS workout_sessions (
       id           SERIAL PRIMARY KEY,
@@ -91,6 +102,34 @@ async function initSchema() {
       weight_kg           NUMERIC(6,2),
       reps                INTEGER,
       duration_sec        INTEGER
+    )
+  `)
+
+  // Migration 002 — suivi du poids corporel
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS body_weight_entries (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      weight_kg  NUMERIC(5,2) NOT NULL,
+      entry_date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (user_id, entry_date)
+    )
+  `)
+
+  // Migration 003 — programme courant + calendrier hebdomadaire
+  await pool.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS current_program VARCHAR(50)
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS weekly_schedule (
+      id           SERIAL PRIMARY KEY,
+      user_id      INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      day_of_week  INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+      label        VARCHAR(100) NOT NULL DEFAULT 'Repos',
+      UNIQUE (user_id, day_of_week)
     )
   `)
 

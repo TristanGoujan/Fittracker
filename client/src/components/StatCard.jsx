@@ -7,7 +7,7 @@ export default function StatCard({ label, value, unit, delay = 0 }) {
   useEffect(() => {
     animate(ref.current, {
       opacity: [0, 1],
-      translateY: [20, 0],
+      translateY: [16, 0],
       duration: 500,
       delay,
       easing: 'easeOutQuad',
@@ -15,11 +15,30 @@ export default function StatCard({ label, value, unit, delay = 0 }) {
   }, [delay])
 
   return (
-    <div ref={ref} className="bg-zinc-900 rounded-xl p-6 opacity-0">
-      <p className="text-zinc-500 text-sm mb-2">{label}</p>
-      <p className="text-white text-3xl font-bold">
+    <div
+      ref={ref}
+      className="rounded-xl p-5 opacity-0"
+      style={{
+        background: 'rgba(255, 255, 255, 0.03)',
+        border: '1px solid rgba(var(--ac), 0.1)',
+      }}
+    >
+      <p
+        className="text-xs font-semibold uppercase tracking-wider mb-3"
+        style={{ color: 'rgba(var(--ac-lt), 0.45)' }}
+      >
+        {label}
+      </p>
+      <p className="text-white text-2xl font-black">
         {value}
-        {unit && <span className="text-zinc-500 text-lg font-normal ml-1">{unit}</span>}
+        {unit && (
+          <span
+            className="text-base font-normal ml-1.5"
+            style={{ color: 'rgba(var(--ac-lt), 0.35)' }}
+          >
+            {unit}
+          </span>
+        )}
       </p>
     </div>
   )

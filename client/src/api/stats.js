@@ -30,6 +30,11 @@ export async function getPRs(token) {
   return handleResponse(res)
 }
 
+export async function getProgress(token, exoId) {
+  const res = await fetch(`${API}/api/stats/progress/${exoId}`, { headers: authHeaders(token) })
+  return handleResponse(res)
+}
+
 export async function getRecentSessions(token) {
   const res = await fetch(`${API}/api/sessions/recent`, { headers: authHeaders(token) })
   return handleResponse(res)
