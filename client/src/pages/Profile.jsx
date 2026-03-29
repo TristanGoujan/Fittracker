@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { animate } from 'animejs'
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip } from 'chart.js'
-import Navbar from '../components/Navbar'
 import { useAuth } from '../hooks/useAuth'
 import { getProfile, updateProfile, uploadAvatar, changePassword, deleteAccount } from '../api/auth'
 import { getBodyWeight, addBodyWeight, deleteBodyWeight } from '../api/bodyweight'
@@ -250,6 +249,8 @@ function DeleteModal({ onConfirm, onClose, loading }) {
 function BodyWeightSection({ token }) {
   const [entries, setEntries]     = useState([])
   const [loadingEntries, setLoadingEntries] = useState(true)
+  const entryListRef = useRef(null)
+  const lastAddedId = useRef(null)
   const [date, setDate]           = useState(() => new Date().toISOString().slice(0, 10))
   const [weight, setWeight]       = useState('')
   const [saving, setSaving]       = useState(false)
@@ -304,6 +305,11 @@ function BodyWeightSection({ token }) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+          duration: 900,
+          easing: 'easeInOutQuart',
+          delay: (ctx) => ctx.type === 'data' ? ctx.dataIndex * 55 : 0,
+        },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -340,11 +346,21 @@ function BodyWeightSection({ token }) {
     }
   }, [entries])
 
+  useEffect(() => {
+    if (!lastAddedId.current || !entryListRef.current) return
+    const el = entryListRef.current.querySelector(`[data-entry-id="${lastAddedId.current}"]`)
+    if (el) {
+      animate(el, { scale: [0, 1], opacity: [0, 1], duration: 350, easing: 'easeOutBack' })
+      lastAddedId.current = null
+    }
+  }, [entries])
+
   async function handleAdd() {
     if (!weight || !date) return
     setSaving(true)
     try {
       const entry = await addBodyWeight(token, { weight_kg: Number(weight), entry_date: date })
+      lastAddedId.current = entry.id
       setEntries((prev) => {
         const filtered = prev.filter((e) => e.entry_date !== entry.entry_date)
         return [...filtered, entry].sort((a, b) => a.entry_date.localeCompare(b.entry_date))
@@ -476,10 +492,11 @@ function BodyWeightSection({ token }) {
 
       {/* Past entries list */}
       {entries.length > 0 && (
-        <div className="mt-4 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+        <div ref={entryListRef} className="mt-4 space-y-1.5 max-h-48 overflow-y-auto pr-1">
           {[...entries].reverse().map((e) => (
             <div
               key={e.id}
+              data-entry-id={e.id}
               className="flex items-center justify-between px-4 py-2.5 rounded-xl group"
               style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(var(--ac),0.07)' }}
             >
@@ -668,7 +685,6 @@ export default function Profile() {
       className="min-h-screen text-white"
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
-      <Navbar />
 
       <main className="max-w-3xl mx-auto px-6 py-10 space-y-6">
 

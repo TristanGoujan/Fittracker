@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { animate } from 'animejs'
 
 const LS_KEY = 'fittracker:pinned_prs'
 
@@ -25,13 +26,34 @@ export default function PRWidget({ prs }) {
   const [pinned, setPinned] = useState(loadPinned)
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
+  const panelRef = useRef(null)
+  const cardRefs = useRef({})
+  const lastAddedId = useRef(null)
 
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(pinned))
   }, [pinned])
 
+  useEffect(() => {
+    if (adding && panelRef.current) {
+      animate(panelRef.current, { translateY: [-8, 0], opacity: [0, 1], duration: 280, easing: 'easeOutQuad' })
+    }
+  }, [adding])
+
+  useEffect(() => {
+    if (!lastAddedId.current) return
+    const el = cardRefs.current[lastAddedId.current]
+    if (el) {
+      animate(el, { scale: [0.8, 1], opacity: [0, 1], duration: 380, easing: 'easeOutBack' })
+      lastAddedId.current = null
+    }
+  }, [pinned])
+
   function addExercise(id) {
-    if (!pinned.includes(id)) setPinned((p) => [...p, id])
+    if (!pinned.includes(id)) {
+      lastAddedId.current = id
+      setPinned((p) => [...p, id])
+    }
     setAdding(false)
     setSearch('')
   }
@@ -70,6 +92,7 @@ export default function PRWidget({ prs }) {
       {/* Sélecteur d'exercice */}
       {adding && (
         <div
+          ref={panelRef}
           className="rounded-xl p-4 space-y-3"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.12)' }}
         >
@@ -134,6 +157,7 @@ export default function PRWidget({ prs }) {
           return (
             <div
               key={pr.exercise_id}
+              ref={(el) => { cardRefs.current[pr.exercise_id] = el }}
               className="rounded-xl p-4 relative group transition-all"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.1)' }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${color}30` }}

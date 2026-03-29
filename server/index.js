@@ -19,6 +19,11 @@ app.use('/api/sessions', sessionsRoutes)
 app.use('/api/stats', statsRoutes)
 app.use('/api/bodyweight', bodyweightRoutes)
 app.use('/api/schedule', require('./routes/schedule'))
+app.use('/api/friends', require('./routes/friends'))
+app.use('/api/feed', require('./routes/feed'))
+app.use('/api/social', require('./routes/social'))
+app.use('/api/leaderboard', require('./routes/leaderboard'))
+app.use('/api/profile', require('./routes/profile'))
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })

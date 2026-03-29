@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import { animate } from 'animejs'
 import ProgressChart from '../components/ProgressChart'
 import { useAuth } from '../hooks/useAuth'
 import { getSessions, getSession, deleteSession } from '../api/sessions'
@@ -105,6 +105,13 @@ function SessionCard({ session, isSelected, onClick }) {
 function DetailPanel({ session, prMap, onDelete, deleting, onSelectExo, selectedExoId }) {
   const navigate = useNavigate()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const confirmRef = useRef(null)
+
+  useEffect(() => {
+    if (confirmDelete && confirmRef.current) {
+      animate(confirmRef.current, { scale: [0.9, 1.05, 1], duration: 320, easing: 'easeOutBack' })
+    }
+  }, [confirmDelete])
 
   const totalVolume = session.exercises.reduce(
     (sum, ex) => sum + ex.sets.reduce((s2, set) => s2 + (set.weight_kg ?? 0) * (set.reps ?? 0), 0),
@@ -324,7 +331,7 @@ function DetailPanel({ session, prMap, onDelete, deleting, onSelectExo, selected
           Répéter la séance
         </button>
         {confirmDelete ? (
-          <div className="flex items-center gap-2">
+          <div ref={confirmRef} className="flex items-center gap-2">
             <span className="text-xs" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>Confirmer ?</span>
             <button
               onClick={onDelete}
@@ -387,6 +394,13 @@ export default function History() {
   const [loadingList, setLoadingList] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const detailRef = useRef(null)
+
+  useEffect(() => {
+    if (!selectedSession || !detailRef.current) return
+    detailRef.current.style.opacity = '0'
+    animate(detailRef.current, { translateX: [40, 0], opacity: [0, 1], duration: 420, easing: 'easeOutQuad' })
+  }, [selectedSession])
 
   useEffect(() => {
     Promise.all([getSessions(token), getPRs(token)])
@@ -432,7 +446,6 @@ export default function History() {
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
-      <Navbar />
 
       <div className="flex flex-1 overflow-hidden text-white">
 
@@ -522,14 +535,16 @@ export default function History() {
               ))}
             </div>
           ) : selectedSession ? (
-            <DetailPanel
-              session={selectedSession}
-              prMap={prMap}
-              onDelete={handleDelete}
-              deleting={deleting}
-              selectedExoId={selectedExoId}
-              onSelectExo={setSelectedExoId}
-            />
+            <div ref={detailRef}>
+              <DetailPanel
+                session={selectedSession}
+                prMap={prMap}
+                onDelete={handleDelete}
+                deleting={deleting}
+                selectedExoId={selectedExoId}
+                onSelectExo={setSelectedExoId}
+              />
+            </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center h-full text-center p-10">
               <div

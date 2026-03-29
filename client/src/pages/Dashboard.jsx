@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import { animate } from 'animejs'
 import StatCard from '../components/StatCard'
 import VolumeChart from '../components/VolumeChart'
 import ActivityGrid from '../components/ActivityGrid'
@@ -41,9 +41,31 @@ function formatDuration(minutes) {
 }
 
 function HeroSection({ user, schedule, hasSchedule }) {
-  const todayIndex = getTodayIndex()
-  const todayLabel = schedule[todayIndex] || 'Repos'
-  const todayColor = SESSION_COLORS[todayLabel] || null
+  const todayIndex  = getTodayIndex()
+  const todayLabel  = schedule[todayIndex] || 'Repos'
+  const todayColor  = SESSION_COLORS[todayLabel] || null
+  const ringRef     = useRef(null)
+  const scheduleRef = useRef(null)
+
+  // Avatar ring pulse
+  useEffect(() => {
+    if (!ringRef.current) return
+    animate(ringRef.current, {
+      scale:   [1, 1.35],
+      opacity: [0.55, 0],
+      duration: 1800,
+      easing:  'easeOut',
+      loop:    true,
+    })
+  }, [])
+
+  // Schedule day cells stagger
+  useEffect(() => {
+    if (!hasSchedule || !scheduleRef.current) return
+    Array.from(scheduleRef.current.children).forEach((el, i) => {
+      animate(el, { opacity: [0, 1], scale: [0.88, 1], delay: i * 45, duration: 350, easing: 'easeOutBack' })
+    })
+  }, [hasSchedule])
 
   return (
     <div
@@ -84,6 +106,15 @@ function HeroSection({ user, schedule, hasSchedule }) {
         <div className="flex items-center gap-5">
           {/* Avatar with double ring */}
           <div className="relative shrink-0">
+            {/* Pulsing ring */}
+            <div
+              ref={ringRef}
+              className="absolute pointer-events-none"
+              style={{
+                inset: -5, borderRadius: '50%',
+                border: '2px solid rgba(var(--ac),0.45)',
+              }}
+            />
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl text-white"
               style={{
@@ -157,7 +188,7 @@ function HeroSection({ user, schedule, hasSchedule }) {
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
             Programme cette semaine
           </p>
-          <div className="flex gap-2">
+          <div ref={scheduleRef} className="flex gap-2">
             {DAYS_SHORT.map((day, i) => {
               const label = schedule[i] || 'Repos'
               const isToday = i === todayIndex
@@ -275,7 +306,6 @@ export default function Dashboard() {
       className="min-h-screen text-white"
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
-      <Navbar />
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
         <HeroSection user={user} schedule={schedule} hasSchedule={hasSchedule} />
@@ -293,14 +323,14 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatCard label="Séances totales" value={summary?.total_sessions ?? 0} delay={0} />
+              <StatCard label="Séances totales" counter={summary?.total_sessions ?? 0} delay={0} />
               <StatCard
                 label="Volume total"
-                value={Math.round(summary?.total_volume ?? 0).toLocaleString('fr-FR')}
+                counter={Math.round(summary?.total_volume ?? 0)}
                 unit="kg"
                 delay={80}
               />
-              <StatCard label="Meilleure charge" value={summary?.best_weight ?? 0} unit="kg" delay={160} />
+              <StatCard label="Meilleure charge" counter={summary?.best_weight ?? 0} unit="kg" delay={160} />
               <StatCard label="Temps ce mois" value={formatDuration(summary?.monthly_duration_min)} delay={240} />
             </div>
 

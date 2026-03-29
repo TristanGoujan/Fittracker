@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import { animate } from 'animejs'
 import { useAuth } from '../hooks/useAuth'
 import { getSession, deleteSession } from '../api/sessions'
+import ShareModal from '../components/ShareModal'
 
 const MUSCLE_COLORS = {
   'Pectoraux':  '#6366f1',
@@ -26,12 +27,28 @@ function formatDate(dateStr) {
 
 export default function SessionDetail() {
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const navigate = useNavigate()
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const exercisesRef = useRef(null)
+  const confirmRef = useRef(null)
+
+  useEffect(() => {
+    if (!session || !exercisesRef.current) return
+    Array.from(exercisesRef.current.children).forEach((el, i) => {
+      animate(el, { opacity: [0, 1], translateY: [12, 0], delay: i * 70, duration: 400, easing: 'easeOutQuad' })
+    })
+  }, [session?.id])
+
+  useEffect(() => {
+    if (confirmDelete && confirmRef.current) {
+      animate(confirmRef.current, { scale: [0.9, 1.05, 1], duration: 320, easing: 'easeOutBack' })
+    }
+  }, [confirmDelete])
 
   useEffect(() => {
     getSession(token, id)
@@ -62,7 +79,6 @@ export default function SessionDetail() {
       className="min-h-screen text-white"
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
-      <Navbar />
       <main className="max-w-3xl mx-auto px-6 py-10">
 
         {/* Breadcrumb */}
@@ -128,42 +144,59 @@ export default function SessionDetail() {
                   </div>
                 </div>
 
-                {/* Delete */}
-                {confirmDelete ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>Confirmer ?</span>
-                    <button
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-                      style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
-                    >
-                      {deleting ? '…' : 'Oui'}
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(false)}
-                      className="text-xs px-3 py-1.5 rounded-lg transition-all"
-                      style={{ color: 'rgba(var(--ac-lt),0.4)' }}
-                    >
-                      Non
-                    </button>
-                  </div>
-                ) : (
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Share button */}
                   <button
-                    onClick={() => setConfirmDelete(true)}
-                    className="text-xs font-medium transition-colors shrink-0"
-                    style={{ color: 'rgba(var(--ac-lt),0.2)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(var(--ac-lt),0.2)' }}
+                    onClick={() => setShowShare(true)}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                    style={{ background: 'rgba(var(--ac),0.1)', color: 'rgb(var(--ac-l))', border: '1px solid rgba(var(--ac),0.2)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--ac),0.18)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--ac),0.1)' }}
                   >
-                    Supprimer
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
+                    </svg>
+                    Partager
                   </button>
-                )}
+
+                  {/* Delete */}
+                  {confirmDelete ? (
+                    <div ref={confirmRef} className="flex items-center gap-2">
+                      <span className="text-xs" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>Confirmer ?</span>
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                        style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                      >
+                        {deleting ? '…' : 'Oui'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                        style={{ color: 'rgba(var(--ac-lt),0.4)' }}
+                      >
+                        Non
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="text-xs font-medium transition-colors"
+                      style={{ color: 'rgba(var(--ac-lt),0.2)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(var(--ac-lt),0.2)' }}
+                    >
+                      Supprimer
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Exercices */}
-            <div className="space-y-3">
+            <div ref={exercisesRef} className="space-y-3">
               {session.exercises.map((ex) => {
                 const exVolume = ex.sets.reduce(
                   (sum, s) => sum + (s.weight_kg ?? 0) * (s.reps ?? 0), 0
@@ -255,6 +288,14 @@ export default function SessionDetail() {
           </div>
         )}
       </main>
+
+      {showShare && session && (
+        <ShareModal
+          session={session}
+          username={user?.username ?? '?'}
+          onClose={() => setShowShare(false)}
+        />
+      )}
     </div>
   )
 }

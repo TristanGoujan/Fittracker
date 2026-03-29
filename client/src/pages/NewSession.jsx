@@ -1,7 +1,6 @@
 import { useReducer, useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { animate } from 'animejs'
-import Navbar from '../components/Navbar'
 import { createSession } from '../api/sessions'
 import { useAuth } from '../hooks/useAuth'
 
@@ -529,6 +528,15 @@ export default function NewSession() {
     }
   }, [success, navigate])
 
+  const submitBtnRef = useRef(null)
+
+  // Pop-in animation when active set / exercise changes
+  const setFormRef = useRef(null)
+  useEffect(() => {
+    if (!setFormRef.current) return
+    animate(setFormRef.current, { scale: [0.96, 1], opacity: [0.6, 1], duration: 280, easing: 'easeOutBack' })
+  }, [activeSetIdx, activeExIdx])
+
   // Ajuste activeExIdx si l'exercice actif est supprimé
   useEffect(() => {
     if (state.exercises.length > 0 && activeExIdx >= state.exercises.length) {
@@ -569,7 +577,13 @@ export default function NewSession() {
 
   async function handleSubmit() {
     setError('')
-    if (state.exercises.length === 0) return setError('Ajoute au moins un exercice.')
+    if (state.exercises.length === 0) {
+      setError('Ajoute au moins un exercice.')
+      if (submitBtnRef.current) {
+        animate(submitBtnRef.current, { translateX: [-5, 5, -5, 5, -2, 2, 0], duration: 380, easing: 'linear' })
+      }
+      return
+    }
     for (const ex of state.exercises) {
       if (!ex.exercise_id) return setError('Sélectionne un exercice pour chaque ligne.')
     }
@@ -611,7 +625,6 @@ export default function NewSession() {
       className="min-h-screen flex flex-col text-white"
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
-      <Navbar />
 
       <div className="flex flex-1 overflow-hidden">
 
@@ -752,11 +765,16 @@ export default function NewSession() {
           )}
 
           <button
+            ref={submitBtnRef}
             type="button"
             onClick={handleSubmit}
-            disabled={loading || state.exercises.length === 0}
-            className="mt-4 w-full font-bold rounded-xl py-3 text-sm transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-            style={{ background: 'linear-gradient(135deg, rgb(var(--ac-d)), rgb(var(--ac-dd)))', boxShadow: '0 4px 20px rgba(var(--ac-d),0.3)' }}
+            disabled={loading}
+            className="mt-4 w-full font-bold rounded-xl py-3 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: 'linear-gradient(135deg, rgb(var(--ac-d)), rgb(var(--ac-dd)))',
+              boxShadow: '0 4px 20px rgba(var(--ac-d),0.3)',
+              opacity: state.exercises.length === 0 ? 0.2 : undefined,
+            }}
             onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = '0 4px 28px rgba(var(--ac-d),0.5)' }}
             onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(var(--ac-d),0.3)' }}
           >
@@ -838,7 +856,7 @@ export default function NewSession() {
               )}
 
               {/* NumberControls */}
-              <div className="flex gap-4 mb-5">
+              <div ref={setFormRef} className="flex gap-4 mb-5">
                 <NumberControl
                   label="Résistance (kg)"
                   value={activeSet?.weight_kg ?? ''}

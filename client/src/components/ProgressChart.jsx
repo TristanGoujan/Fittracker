@@ -44,6 +44,11 @@ export default function ProgressChart({ data }) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+          duration: 900,
+          easing: 'easeInOutQuart',
+          delay: (ctx) => ctx.type === 'data' ? ctx.dataIndex * 50 : 0,
+        },
         plugins: {
           legend: { display: false },
           tooltip: {

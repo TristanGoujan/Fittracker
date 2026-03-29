@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { animate } from 'animejs'
 
 const PERIODS = [
   { label: '7j',    days: 7 },
@@ -6,6 +7,8 @@ const PERIODS = [
   { label: '3 mois', days: 90 },
   { label: '1 an',  days: 364 },
 ]
+
+const DAY_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 function intensityStyle(count) {
   if (count === 0) return { background: 'rgba(255,255,255,0.04)' }
@@ -15,9 +18,34 @@ function intensityStyle(count) {
 }
 
 export default function ActivityGrid({ data }) {
-  const [days, setDays] = useState(182)
+  const [days, setDays] = useState(7)
 
   const map = Object.fromEntries((data ?? []).map((d) => [d.date, d.count]))
+  const gridRef = useRef(null)
+  const weekRef = useRef(null)
+
+  useEffect(() => {
+    if (days === 7) {
+      if (!weekRef.current) return
+      const rows = Array.from(weekRef.current.children)
+      rows.forEach(el => { el.style.opacity = '0' })
+      requestAnimationFrame(() => {
+        rows.forEach((el, i) => {
+          animate(el, { opacity: [0, 1], translateX: [-12, 0], delay: i * 45, duration: 280, easing: 'easeOutQuad' })
+        })
+      })
+      return
+    }
+    if (!gridRef.current) return
+    const cells = Array.from(gridRef.current.children)
+    cells.forEach(el => { el.style.opacity = '0' })
+    requestAnimationFrame(() => {
+      cells.forEach((el, i) => {
+        const col = Math.floor(i / 7)
+        animate(el, { opacity: [0, 1], scale: [0.6, 1], delay: col * 10, duration: 220, easing: 'easeOutQuad' })
+      })
+    })
+  }, [days])
 
   const today = new Date()
   const allDays = []
@@ -74,57 +102,95 @@ export default function ActivityGrid({ data }) {
         </div>
       </div>
 
-      {/* Labels des mois */}
-      {months.length > 0 && (
-        <div
-          className="grid h-4 mb-1"
-          style={{ gridTemplateColumns: `repeat(${totalCols}, 1fr)` }}
-        >
-          {months.map((m) => (
-            <span
-              key={m.label + m.col}
-              style={{ gridColumn: m.col, color: 'rgba(var(--ac-lt),0.3)', fontSize: '10px' }}
-            >
-              {m.label}
-            </span>
-          ))}
+      {days === 7 ? (
+        /* ── Vue 7 jours : carrés en ligne horizontale ── */
+        <div ref={weekRef} className="flex justify-around py-2">
+          {allDays.map((day) => {
+            const d = new Date(day.date + 'T00:00:00')
+            const dayIdx = (d.getDay() + 6) % 7
+            const isToday = day.date === today.toISOString().split('T')[0]
+            return (
+              <div key={day.date} className="flex flex-col items-center gap-1.5">
+                <span
+                  style={{
+                    color: isToday ? 'rgb(var(--ac-lt))' : 'rgba(var(--ac-lt),0.3)',
+                    fontSize: '10px',
+                    fontWeight: isToday ? 700 : 500,
+                  }}
+                >
+                  {DAY_SHORT[dayIdx]}
+                </span>
+                <div
+                  title={`${day.date} — ${day.count} séance${day.count > 1 ? 's' : ''}`}
+                  style={{
+                    ...intensityStyle(day.count),
+                    width: 48,
+                    height: 48,
+                    borderRadius: 6,
+                    outline: isToday ? '2px solid rgba(var(--ac),0.5)' : 'none',
+                    outlineOffset: 2,
+                  }}
+                />
+                <span style={{ color: 'rgba(var(--ac-lt),0.2)', fontSize: '9px' }}>
+                  {d.toLocaleDateString('fr-FR', { day: 'numeric' })}
+                </span>
+              </div>
+            )
+          })}
         </div>
-      )}
-
-      {/* Grille */}
-      <div className="flex gap-2" style={{ height: '112px' }}>
-        {/* Labels des jours */}
-        <div
-          className="grid shrink-0"
-          style={{ gridTemplateRows: 'repeat(7, 1fr)', fontSize: '10px', color: 'rgba(var(--ac-lt),0.25)' }}
-        >
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <span key={i} className="flex items-center leading-none">{d}</span>
-          ))}
-        </div>
-
-        {/* Cellules */}
-        <div
-          className="grid gap-0.5 flex-1"
-          style={{
-            gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
-            gridTemplateRows: 'repeat(7, 1fr)',
-            gridAutoFlow: 'column',
-          }}
-        >
-          {Array(offset).fill(null).map((_, i) => (
-            <div key={`pad-${i}`} />
-          ))}
-          {allDays.map((day) => (
+      ) : (
+        /* ── Vue multi-semaines : grille heatmap ── */
+        <>
+          {months.length > 0 && (
             <div
-              key={day.date}
-              title={`${day.date} — ${day.count} séance${day.count > 1 ? 's' : ''}`}
-              className="rounded-sm"
-              style={intensityStyle(day.count)}
-            />
-          ))}
-        </div>
-      </div>
+              className="grid h-4 mb-1"
+              style={{ gridTemplateColumns: `repeat(${totalCols}, 1fr)` }}
+            >
+              {months.map((m) => (
+                <span
+                  key={m.label + m.col}
+                  style={{ gridColumn: m.col, color: 'rgba(var(--ac-lt),0.3)', fontSize: '10px' }}
+                >
+                  {m.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2" style={{ height: '112px' }}>
+            <div
+              className="grid shrink-0"
+              style={{ gridTemplateRows: 'repeat(7, 1fr)', fontSize: '10px', color: 'rgba(var(--ac-lt),0.25)' }}
+            >
+              {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+                <span key={i} className="flex items-center leading-none">{d}</span>
+              ))}
+            </div>
+
+            <div
+              ref={gridRef}
+              className="grid gap-0.5 flex-1"
+              style={{
+                gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
+                gridTemplateRows: 'repeat(7, 1fr)',
+                gridAutoFlow: 'column',
+              }}
+            >
+              {Array(offset).fill(null).map((_, i) => (
+                <div key={`pad-${i}`} />
+              ))}
+              {allDays.map((day) => (
+                <div
+                  key={day.date}
+                  title={`${day.date} — ${day.count} séance${day.count > 1 ? 's' : ''}`}
+                  className="rounded-sm"
+                  style={intensityStyle(day.count)}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Légende */}
       <div className="flex items-center gap-1.5 mt-3 justify-end">

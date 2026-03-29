@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import Navbar from '../components/Navbar'
+import { useEffect, useRef, useState } from 'react'
+import { animate } from 'animejs'
 import { useAuth } from '../hooks/useAuth'
 import { getProfile } from '../api/auth'
 import { updateProgram } from '../api/auth'
@@ -246,6 +246,7 @@ export default function Programs() {
   const { token } = useAuth()
   const [selectedId, setSelectedId] = useState('ppl')
   const [schedule, setSchedule] = useState(PROGRAMS[0].defaults)
+  const cardRefs = useRef({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -279,6 +280,8 @@ export default function Programs() {
     setSelectedId(prog.id)
     setSchedule(prog.defaults)
     setSaved(false)
+    const el = cardRefs.current[prog.id]
+    if (el) animate(el, { scale: [1, 1.04, 1], duration: 380, easing: 'easeOutBack' })
   }
 
   function updateDay(index, label) {
@@ -313,7 +316,6 @@ export default function Programs() {
       className="min-h-screen text-white"
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
-      <Navbar />
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-8">
 
         {/* Header */}
@@ -331,6 +333,7 @@ export default function Programs() {
             return (
               <button
                 key={prog.id}
+                ref={(el) => { cardRefs.current[prog.id] = el }}
                 onClick={() => selectProgram(prog)}
                 className="text-left rounded-2xl p-5 transition-all"
                 style={{

@@ -152,6 +152,39 @@ async function initSchema() {
     }
   }
 
+  // Migration 004 — système social (amis, réactions, commentaires)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS friendships (
+      id          SERIAL PRIMARY KEY,
+      sender_id   INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      status      VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','blocked')),
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (sender_id, receiver_id)
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS session_reactions (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      session_id INTEGER REFERENCES workout_sessions(id) ON DELETE CASCADE,
+      emoji      VARCHAR(10) NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (user_id, session_id)
+    )
+  `)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS session_comments (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      session_id INTEGER REFERENCES workout_sessions(id) ON DELETE CASCADE,
+      content    VARCHAR(300) NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
   console.log('Schéma initialisé')
 }
 
