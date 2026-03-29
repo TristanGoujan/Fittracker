@@ -244,7 +244,7 @@ function DayCell({ day, index, label, types, onUpdate }) {
 
 export default function Programs() {
   const { token } = useAuth()
-  const [selectedId, setSelectedId] = useState('ppl')
+  const [selectedId, setSelectedId] = useState(null)
   const [schedule, setSchedule] = useState(PROGRAMS[0].defaults)
   const cardRefs = useRef({})
   const [saving, setSaving] = useState(false)
@@ -329,7 +329,7 @@ export default function Programs() {
         {/* Program cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {PROGRAMS.map((prog) => {
-            const active = selectedId === prog.id
+            const active = !!selectedId && selectedId === prog.id
             return (
               <button
                 key={prog.id}

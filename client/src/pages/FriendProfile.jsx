@@ -24,10 +24,12 @@ const MUSCLE_COLORS = {
   Biceps: '#ef4444', Triceps: '#a855f7', Jambes: '#3b82f6', Abdominaux: '#14b8a6',
 }
 
-const GOAL_LABELS = {
-  perte_poids: 'Perte de poids', prise_muscle: 'Prise de muscle',
-  endurance: 'Endurance', force: 'Force', sante: 'Santé',
-  Masse: 'Masse', Sèche: 'Sèche', Force: 'Force', Maintien: 'Maintien',
+const GOAL_META = {
+  muscle:    { label: 'Prise de masse',  color: '#6366f1' },
+  cut:       { label: 'Sèche',           color: '#f59e0b' },
+  strength:  { label: 'Force',           color: '#ef4444' },
+  endurance: { label: 'Endurance',       color: '#10b981' },
+  fitness:   { label: 'Remise en forme', color: '#3b82f6' },
 }
 
 const PROGRAM_LABELS = {
@@ -450,12 +452,23 @@ export default function FriendProfile() {
 
                   {/* Badges */}
                   <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
-                    {profile.goal && (
-                      <span className="text-xs font-semibold px-3 py-1 rounded-full"
-                        style={{ background: 'rgba(var(--ac),0.1)', color: 'rgb(var(--ac-l))', border: '1px solid rgba(var(--ac),0.18)' }}>
-                        {GOAL_LABELS[profile.goal] || profile.goal}
-                      </span>
-                    )}
+                    {profile.goal && (() => {
+                      const meta = GOAL_META[profile.goal]
+                      const color = meta?.color || 'rgb(var(--ac-l))'
+                      const label = meta?.label || profile.goal
+                      return (
+                        <span
+                          className="text-xs font-semibold px-3 py-1 rounded-full"
+                          style={{
+                            background: meta ? `${color}18` : 'rgba(var(--ac),0.1)',
+                            color,
+                            border: `1px solid ${meta ? color + '40' : 'rgba(var(--ac),0.18)'}`,
+                          }}
+                        >
+                          {label}
+                        </span>
+                      )
+                    })()}
                     {profile.current_program && (
                       <span className="text-xs font-semibold px-3 py-1 rounded-full"
                         style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>

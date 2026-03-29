@@ -398,8 +398,9 @@ export default function History() {
 
   useEffect(() => {
     if (!selectedSession || !detailRef.current) return
-    detailRef.current.style.opacity = '0'
-    animate(detailRef.current, { translateX: [40, 0], opacity: [0, 1], duration: 420, easing: 'easeOutQuad' })
+    const el = detailRef.current
+    el.style.opacity = '0'
+    animate(el, { opacity: [0, 1], duration: 300, easing: 'easeOutQuad' })
   }, [selectedSession])
 
   useEffect(() => {

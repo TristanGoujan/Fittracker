@@ -527,11 +527,26 @@ function BodyWeightSection({ token }) {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 const GOALS = [
-  { value: 'muscle', label: 'Prise de masse' },
-  { value: 'cut',    label: 'Sèche' },
-  { value: 'strength', label: 'Force' },
-  { value: 'endurance', label: 'Endurance' },
-  { value: 'fitness',  label: 'Remise en forme' },
+  {
+    value: 'muscle', label: 'Prise de masse', color: '#6366f1',
+    icon: <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>,
+  },
+  {
+    value: 'cut', label: 'Sèche', color: '#f59e0b',
+    icon: <path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>,
+  },
+  {
+    value: 'strength', label: 'Force', color: '#ef4444',
+    icon: <path d="M7 2v11h3v9l7-12h-4l4-8z"/>,
+  },
+  {
+    value: 'endurance', label: 'Endurance', color: '#10b981',
+    icon: <path d="M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z"/>,
+  },
+  {
+    value: 'fitness', label: 'Remise en forme', color: '#3b82f6',
+    icon: <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm3.88-11.71L10 14.17l-1.88-1.88a.996.996 0 1 0-1.41 1.41l2.59 2.59c.39.39 1.02.39 1.41 0L17.3 9.7a.996.996 0 0 0 0-1.41c-.39-.39-1.03-.39-1.42 0z"/>,
+  },
 ]
 
 export default function Profile() {
@@ -807,19 +822,46 @@ export default function Profile() {
                   </div>
 
                   <Field label="Objectif principal">
-                    <select
-                      value={form.goal}
-                      onChange={setF('goal')}
-                      className="w-full text-white text-sm rounded-xl px-4 py-3 outline-none transition-all"
-                      style={INPUT_STYLE}
-                      onFocus={(e) => Object.assign(e.currentTarget.style, INPUT_FOCUS)}
-                      onBlur={(e)  => Object.assign(e.currentTarget.style, INPUT_BLUR)}
-                    >
-                      <option value="" style={{ background: '#080f1f' }}>Choisir un objectif…</option>
-                      {GOALS.map((g) => (
-                        <option key={g.value} value={g.value} style={{ background: '#080f1f' }}>{g.label}</option>
-                      ))}
-                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      {GOALS.map((g) => {
+                        const active = form.goal === g.value
+                        return (
+                          <button
+                            key={g.value}
+                            type="button"
+                            onClick={() => setForm((f) => ({ ...f, goal: g.value }))}
+                            className="text-left rounded-xl px-3 py-2.5 transition-all flex items-center gap-2.5"
+                            style={{
+                              background: active ? `${g.color}18` : 'rgba(255,255,255,0.03)',
+                              border: `1.5px solid ${active ? g.color + '55' : 'rgba(255,255,255,0.07)'}`,
+                              boxShadow: active ? `0 0 14px ${g.color}18` : 'none',
+                            }}
+                            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+                            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                          >
+                            <div
+                              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                              style={{ background: `${g.color}22` }}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill={g.color}>
+                                {g.icon}
+                              </svg>
+                            </div>
+                            <span
+                              className="text-xs font-semibold leading-tight"
+                              style={{ color: active ? g.color : 'rgba(255,255,255,0.45)' }}
+                            >
+                              {g.label}
+                            </span>
+                            {active && (
+                              <svg className="ml-auto shrink-0" width="12" height="12" viewBox="0 0 24 24" fill={g.color}>
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                              </svg>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </Field>
                 </div>
 
