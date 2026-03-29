@@ -11,3 +11,17 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Dismiss splash after React's first paint
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    const splash = document.getElementById('splash')
+    const bar    = document.getElementById('splash-bar')
+    if (!splash) return
+    if (bar) bar.classList.add('complete')
+    setTimeout(() => {
+      splash.classList.add('splash-done')
+      setTimeout(() => splash.remove(), 450)
+    }, 200)
+  })
+})
