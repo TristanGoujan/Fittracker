@@ -20,6 +20,18 @@ const SESSION_COLORS = {
   'Pecto / Dos': '#8b5cf6', 'Épaules / Bras': '#ec4899',
 }
 
+function parseLabel(raw) {
+  if (!raw) return { name: '', color: null }
+  const idx = raw.lastIndexOf('|#')
+  if (idx === -1) return { name: raw, color: null }
+  return { name: raw.slice(0, idx), color: raw.slice(idx + 1) }
+}
+
+function getSessionColor(rawLabel) {
+  const { name, color } = parseLabel(rawLabel)
+  return SESSION_COLORS[name] || color || null
+}
+
 function getTodayIndex() {
   return (new Date().getDay() + 6) % 7
 }
@@ -42,8 +54,9 @@ function formatDuration(minutes) {
 
 function HeroSection({ user, schedule, hasSchedule }) {
   const todayIndex  = getTodayIndex()
-  const todayLabel  = schedule[todayIndex] || 'Repos'
-  const todayColor  = SESSION_COLORS[todayLabel] || null
+  const todayRaw    = schedule[todayIndex] || 'Repos'
+  const { name: todayLabel } = parseLabel(todayRaw)
+  const todayColor  = getSessionColor(todayRaw)
   const ringRef     = useRef(null)
   const scheduleRef = useRef(null)
 
@@ -190,9 +203,10 @@ function HeroSection({ user, schedule, hasSchedule }) {
           </p>
           <div ref={scheduleRef} className="flex gap-2">
             {DAYS_SHORT.map((day, i) => {
-              const label = schedule[i] || 'Repos'
+              const raw = schedule[i] || 'Repos'
+              const { name: label } = parseLabel(raw)
               const isToday = i === todayIndex
-              const color = SESSION_COLORS[label] || null
+              const color = getSessionColor(raw)
               const isRest = !color
 
               return (
@@ -319,6 +333,39 @@ export default function Dashboard() {
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.08)' }}
               />
             ))}
+          </div>
+        ) : summary?.total_sessions === 0 ? (
+          <div
+            className="rounded-2xl p-12 flex flex-col items-center text-center"
+            style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(var(--ac),0.15)' }}
+          >
+            <div
+              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+              style={{ background: 'rgba(var(--ac-d),0.12)', border: '1px solid rgba(var(--ac),0.15)' }}
+            >
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="rgba(var(--ac-l),0.4)">
+                <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>
+              </svg>
+            </div>
+            <h3 className="text-xl font-black text-white mb-2">Première séance ?</h3>
+            <p className="text-sm mb-8 max-w-xs" style={{ color: 'rgba(var(--ac-lt),0.35)', lineHeight: 1.7 }}>
+              Ton dashboard se remplira au fil de tes entraînements. Commence dès maintenant.
+            </p>
+            <Link
+              to="/new"
+              className="flex items-center gap-2 px-8 py-3.5 rounded-2xl text-sm font-bold text-white transition-all"
+              style={{
+                background: 'linear-gradient(135deg, rgb(var(--ac-d)), rgb(var(--ac-dd)))',
+                boxShadow: '0 4px 20px rgba(var(--ac-d),0.4)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 28px rgba(var(--ac-d),0.6)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(var(--ac-d),0.4)' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Créer ma première séance
+            </Link>
           </div>
         ) : (
           <>

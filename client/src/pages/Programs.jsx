@@ -78,21 +78,50 @@ const SESSION_COLORS = {
   'Pecto / Dos': '#8b5cf6', 'Épaules / Bras': '#ec4899',
 }
 
-function getSessionColor(label) {
-  return SESSION_COLORS[label] || null
+const COLOR_PALETTE = [
+  '#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#84cc16',
+  '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#a855f7',
+  '#8b5cf6', '#64748b',
+]
+
+// Encode/decode color embedded in label: "Cardio|#f97316"
+function parseLabel(raw) {
+  if (!raw) return { name: '', color: null }
+  const idx = raw.lastIndexOf('|#')
+  if (idx === -1) return { name: raw, color: null }
+  return { name: raw.slice(0, idx), color: raw.slice(idx + 1) }
+}
+
+function encodeLabel(name, color) {
+  if (!color || SESSION_COLORS[name]) return name
+  return `${name}|${color}`
+}
+
+function getSessionColor(rawLabel) {
+  const { name, color } = parseLabel(rawLabel)
+  return SESSION_COLORS[name] || color || null
 }
 
 // Day cell with fixed centered modal picker
 function DayCell({ day, index, label, types, onUpdate }) {
   const [open, setOpen] = useState(false)
   const [custom, setCustom] = useState('')
+  const [customColor, setCustomColor] = useState(COLOR_PALETTE[0])
+  const { name: displayLabel } = parseLabel(label)
   const color = label ? getSessionColor(label) : null
-  const isRest = !label || label === 'Repos'
+  const isRest = !label || label === 'Repos' || displayLabel === 'Repos'
   const allTypes = [...new Set([...types, 'Repos'])]
+  const { name: activeName } = parseLabel(label)
 
   function handleSelect(t) {
     onUpdate(index, t)
     setOpen(false)
+  }
+
+  function handleCustomSubmit() {
+    if (!custom.trim()) return
+    handleSelect(encodeLabel(custom.trim(), customColor))
+    setCustom('')
   }
 
   return (
@@ -128,7 +157,7 @@ function DayCell({ day, index, label, types, onUpdate }) {
           className="text-xs font-bold text-center leading-tight truncate w-full px-1"
           style={{ color: color || 'rgba(255,255,255,0.2)' }}
         >
-          {label || 'Repos'}
+          {displayLabel || 'Repos'}
         </span>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(255,255,255,0.2)">
           <path d="M7 10l5 5 5-5z"/>
@@ -176,7 +205,7 @@ function DayCell({ day, index, label, types, onUpdate }) {
             <div className="space-y-1 mb-3">
               {allTypes.map((t) => {
                 const tc = getSessionColor(t)
-                const isActive = label === t
+                const isActive = activeName === t
                 return (
                   <button
                     key={t}
@@ -209,27 +238,43 @@ function DayCell({ day, index, label, types, onUpdate }) {
             {/* Custom text input */}
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} className="pt-3">
               <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.2)' }}>Ou saisir un nom libre</p>
+
+              {/* Color palette */}
+              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                {COLOR_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCustomColor(c)}
+                    className="w-6 h-6 rounded-full transition-all shrink-0"
+                    style={{
+                      background: c,
+                      boxShadow: customColor === c ? `0 0 0 2px rgba(5,12,28,0.98), 0 0 0 4px ${c}` : 'none',
+                      transform: customColor === c ? 'scale(1.15)' : 'scale(1)',
+                    }}
+                  />
+                ))}
+              </div>
+
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={custom}
                   onChange={(e) => setCustom(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && custom.trim()) {
-                      handleSelect(custom.trim())
-                      setCustom('')
-                    }
-                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCustomSubmit() }}
                   placeholder="Ex : Cardio, Mobilité…"
                   className="flex-1 text-white text-sm px-3 py-2 rounded-xl outline-none placeholder:opacity-25"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(var(--ac),0.15)' }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--ac),0.4)' }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--ac),0.15)' }}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${custom.trim() ? customColor + '60' : 'rgba(var(--ac),0.15)'}`,
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = customColor + '80' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = custom.trim() ? customColor + '60' : 'rgba(var(--ac),0.15)' }}
                 />
                 <button
-                  onClick={() => { if (custom.trim()) { handleSelect(custom.trim()); setCustom('') } }}
+                  onClick={handleCustomSubmit}
                   className="px-3 py-2 rounded-xl text-sm font-bold text-white transition-all"
-                  style={{ background: 'rgba(var(--ac-d),0.7)', opacity: custom.trim() ? 1 : 0.3 }}
+                  style={{ background: custom.trim() ? customColor : 'rgba(255,255,255,0.06)', opacity: custom.trim() ? 1 : 0.4 }}
                 >
                   OK
                 </button>

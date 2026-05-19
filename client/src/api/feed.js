@@ -15,4 +15,4 @@ async function req(method, path, token, body) {
   return data
 }
 
-export const getFeed = (token) => req('GET', '/api/feed', token)
+export const getFeed = (token, page = 1) => req('GET', `/api/feed?page=${page}`, token)

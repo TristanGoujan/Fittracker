@@ -5,8 +5,63 @@ import { Chart, LineController, LineElement, PointElement, LinearScale, Category
 import { useAuth } from '../hooks/useAuth'
 import { getProfile, updateProfile, uploadAvatar, changePassword, deleteAccount } from '../api/auth'
 import { getBodyWeight, addBodyWeight, deleteBodyWeight } from '../api/bodyweight'
+import { getVolume, getSummary } from '../api/stats'
+import Badges from '../components/Badges'
+import MuscleRadar from '../components/MuscleRadar'
+import { ALL_BADGES } from '../data/badges.jsx'
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip)
+
+const BADGE_STORAGE_KEY = 'fittracker:unlocked_badges'
+
+// ─── Badge toast ──────────────────────────────────────────────────────────────
+
+function BadgeToast({ badges, onDone }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!ref.current) return
+    animate(ref.current, { translateY: [80, 0], opacity: [0, 1], duration: 480, easing: 'easeOutBack' })
+    const t = setTimeout(() => {
+      animate(ref.current, {
+        translateY: [0, 80], opacity: [1, 0], duration: 320, easing: 'easeInQuad',
+        complete: onDone,
+      })
+    }, 3500)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!badges.length) return null
+  return (
+    <div
+      ref={ref}
+      className="fixed bottom-8 left-1/2 z-50 flex flex-col gap-2 opacity-0"
+      style={{ transform: 'translateX(-50%)' }}
+    >
+      {badges.map((b) => (
+        <div
+          key={b.id}
+          className="flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
+          style={{
+            background: 'rgba(5,12,28,0.97)',
+            border: `1px solid ${b.color}55`,
+            boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 20px ${b.color}25`,
+            minWidth: 260,
+          }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${b.color}20` }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={b.color}>{b.icon}</svg>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: b.color }}>Badge débloqué !</p>
+            <p className="text-sm font-black text-white leading-tight">{b.label}</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{b.desc}</p>
+          </div>
+          <span className="text-xl ml-1">🏆</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // ─── Password strength ────────────────────────────────────────────────────────
 
@@ -582,8 +637,30 @@ export default function Profile() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
+  // Volume data for radar
+  const [volumeData, setVolumeData] = useState(null)
+  const [fullStats, setFullStats] = useState(null)
+  const [newBadges, setNewBadges] = useState([])
+
   // ── Fetch profile ────────────────────────────────────────────────────────────
   useEffect(() => {
+    getVolume(token, 90).then(setVolumeData).catch(() => {})
+    getSummary(token).then((stats) => {
+      setFullStats(stats)
+
+      // Détection des badges nouvellement débloqués
+      const nowUnlocked = ALL_BADGES.filter(b => b.check(stats))
+      const nowIds = nowUnlocked.map(b => b.id)
+
+      try {
+        const prev = new Set(JSON.parse(localStorage.getItem(BADGE_STORAGE_KEY) || '[]'))
+        const fresh = nowUnlocked.filter(b => !prev.has(b.id))
+        if (fresh.length) setNewBadges(fresh)
+        localStorage.setItem(BADGE_STORAGE_KEY, JSON.stringify(nowIds))
+      } catch {
+        localStorage.setItem(BADGE_STORAGE_KEY, JSON.stringify(nowIds))
+      }
+    }).catch(() => {})
     getProfile(token)
       .then((data) => {
         setProfile(data)
@@ -790,6 +867,17 @@ export default function Profile() {
                 })()}
               </Card>
             </div>
+
+            {/* ── Badges ───────────────────────────────────────────────── */}
+            <Card>
+              <Badges stats={fullStats} />
+            </Card>
+
+            {/* ── Répartition musculaire ────────────────────────────────── */}
+            <Card>
+              <SectionTitle>Répartition musculaire (90 jours)</SectionTitle>
+              <MuscleRadar volumeData={volumeData} />
+            </Card>
 
             {/* ── Informations personnelles ─────────────────────────────── */}
             <div ref={formRef} style={{ opacity: 0 }}>
@@ -1008,6 +1096,10 @@ export default function Profile() {
           onConfirm={handleDeleteAccount}
           onClose={() => setShowDelete(false)}
         />
+      )}
+
+      {newBadges.length > 0 && (
+        <BadgeToast badges={newBadges} onDone={() => setNewBadges([])} />
       )}
     </div>
   )

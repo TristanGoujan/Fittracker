@@ -4,7 +4,7 @@ import { animate } from 'animejs'
 import { useAuth } from '../hooks/useAuth'
 import { getFriends, getFriendRequests, getPendingOut, searchUsers, sendRequest, acceptRequest, declineRequest, blockUser, removeFriend } from '../api/friends'
 import { getFeed } from '../api/feed'
-import { react as reactToSession, getComments, addComment, deleteComment, getLeaderboard, getPRLeaderboard } from '../api/social'
+import { react as reactToSession, getComments, addComment, deleteComment, getLeaderboard, getPRLeaderboard, getGlobalLeaderboard } from '../api/social'
 
 const EMOJIS = ['💪', '🔥', '👊', '🎯', '⚡']
 
@@ -91,7 +91,7 @@ function EmojiBurst({ emoji, onDone }) {
     <div
       ref={containerRef}
       style={{
-        position: 'absolute', bottom: 6, left: '50%',
+        position: 'absolute', bottom: '50%', left: '50%',
         transform: 'translateX(-50%)',
         pointerEvents: 'none', zIndex: 20,
       }}
@@ -118,44 +118,48 @@ function FeedCard({ session, token, currentUserId }) {
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
 
-  async function handleReact(emoji) {
-    try {
-      const res = await reactToSession(token, session.id, emoji)
-      if (res.action !== 'removed') {
-        setBursts(b => [...b, { id: Date.now() + Math.random(), emoji }])
-      }
-      // Recompute reactions
-      if (res.action === 'removed') {
-        setMyReaction(null)
-        setReactions(prev => {
-          const updated = prev.map(r => r.emoji === emoji ? { ...r, count: r.count - 1 } : r)
-          return updated.filter(r => r.count > 0)
-        })
-      } else if (res.action === 'replaced') {
-        const prevEmoji = myReaction
-        setMyReaction(emoji)
-        setReactions(prev => {
-          let updated = prev.map(r => {
-            if (r.emoji === prevEmoji) return { ...r, count: r.count - 1 }
-            if (r.emoji === emoji) return { ...r, count: r.count + 1 }
-            return r
-          }).filter(r => r.count > 0)
-          if (!updated.find(r => r.emoji === emoji)) {
-            updated = [...updated, { emoji, count: 1 }]
-          }
-          return updated
-        })
-      } else {
-        setMyReaction(emoji)
-        setReactions(prev => {
-          const existing = prev.find(r => r.emoji === emoji)
-          if (existing) return prev.map(r => r.emoji === emoji ? { ...r, count: r.count + 1 } : r)
-          return [...prev, { emoji, count: 1 }]
-        })
-      }
-    } catch (err) {
-      console.error('Erreur réaction:', err)
+  function handleReact(emoji) {
+    // Snapshot for rollback
+    const prevReaction = myReaction
+    const prevReactions = reactions
+
+    // Determine optimistic next state
+    let nextReaction
+    let nextReactions
+
+    if (myReaction === emoji) {
+      // toggle off
+      nextReaction = null
+      nextReactions = prevReactions.map(r => r.emoji === emoji ? { ...r, count: r.count - 1 } : r).filter(r => r.count > 0)
+    } else if (myReaction) {
+      // replace
+      nextReaction = emoji
+      let updated = prevReactions.map(r => {
+        if (r.emoji === myReaction) return { ...r, count: r.count - 1 }
+        if (r.emoji === emoji) return { ...r, count: r.count + 1 }
+        return r
+      }).filter(r => r.count > 0)
+      if (!updated.find(r => r.emoji === emoji)) updated = [...updated, { emoji, count: 1 }]
+      nextReactions = updated
+    } else {
+      // new reaction
+      nextReaction = emoji
+      const existing = prevReactions.find(r => r.emoji === emoji)
+      nextReactions = existing
+        ? prevReactions.map(r => r.emoji === emoji ? { ...r, count: r.count + 1 } : r)
+        : [...prevReactions, { emoji, count: 1 }]
     }
+
+    // Apply optimistically
+    setMyReaction(nextReaction)
+    setReactions(nextReactions)
+    if (nextReaction) setBursts(b => [...b, { id: Date.now() + Math.random(), emoji }])
+
+    // API call in background — rollback on error
+    reactToSession(token, session.id, emoji).catch(() => {
+      setMyReaction(prevReaction)
+      setReactions(prevReactions)
+    })
   }
 
   async function loadComments() {
@@ -284,40 +288,40 @@ function FeedCard({ session, token, currentUserId }) {
       )}
 
       {/* Reactions */}
-      <div style={{ position: 'relative' }}>
-        {bursts.map(b => (
-          <EmojiBurst key={b.id} emoji={b.emoji} onDone={() => setBursts(p => p.filter(x => x.id !== b.id))} />
-        ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {EMOJIS.map(emoji => {
-            const reactionData = reactions.find(r => r.emoji === emoji)
-            const count = reactionData ? reactionData.count : 0
-            const isActive = myReaction === emoji
-            return (
-              <button
-                key={emoji}
-                onClick={() => handleReact(emoji)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '4px 10px',
-                  borderRadius: 20,
-                  border: `1px solid ${isActive ? 'rgba(var(--ac),0.4)' : 'rgba(255,255,255,0.08)'}`,
-                  background: isActive ? 'rgba(var(--ac),0.12)' : 'rgba(255,255,255,0.03)',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  color: isActive ? 'rgb(var(--ac-l))' : 'rgba(255,255,255,0.5)',
-                  fontWeight: count > 0 ? 600 : 400,
-                  transition: 'all 0.15s',
-                }}
-              >
-                <span>{emoji}</span>
-                {count > 0 && <span style={{ fontSize: 12 }}>{count}</span>}
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {EMOJIS.map(emoji => {
+          const reactionData = reactions.find(r => r.emoji === emoji)
+          const count = reactionData ? reactionData.count : 0
+          const isActive = myReaction === emoji
+          const btnBursts = bursts.filter(b => b.emoji === emoji)
+          return (
+            <button
+              key={emoji}
+              onClick={() => handleReact(emoji)}
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                borderRadius: 20,
+                border: `1px solid ${isActive ? 'rgba(var(--ac),0.4)' : 'rgba(255,255,255,0.08)'}`,
+                background: isActive ? 'rgba(var(--ac),0.12)' : 'rgba(255,255,255,0.03)',
+                cursor: 'pointer',
+                fontSize: 14,
+                color: isActive ? 'rgb(var(--ac-l))' : 'rgba(255,255,255,0.5)',
+                fontWeight: count > 0 ? 600 : 400,
+                transition: 'all 0.15s',
+              }}
+            >
+              {btnBursts.map(b => (
+                <EmojiBurst key={b.id} emoji={b.emoji} onDone={() => setBursts(p => p.filter(x => x.id !== b.id))} />
+              ))}
+              <span>{emoji}</span>
+              {count > 0 && <span style={{ fontSize: 12 }}>{count}</span>}
+            </button>
+          )
+        })}
       </div>
 
       {/* Comments toggle */}
@@ -416,16 +420,20 @@ function FeedCard({ session, token, currentUserId }) {
 // ─── FeedTab ──────────────────────────────────────────────────────────────────
 
 function FeedTab({ token, userId }) {
-  const [feed, setFeed] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const feedRef    = useRef(null)
+  const [feed, setFeed]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
+  const [page, setPage]           = useState(1)
+  const [hasMore, setHasMore]     = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const feedRef     = useRef(null)
   const animatedRef = useRef(false)
+  const sentinelRef = useRef(null)
 
   useEffect(() => {
     setLoading(true)
-    getFeed(token)
-      .then(setFeed)
+    getFeed(token, 1)
+      .then(data => { setFeed(data); setHasMore(data.length === 20) })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [token])
@@ -441,6 +449,29 @@ function FeedTab({ token, userId }) {
       })
     })
   }, [feed.length])
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore && hasMore) {
+          setLoadingMore(true)
+          const nextPage = page + 1
+          getFeed(token, nextPage)
+            .then(data => {
+              setFeed(prev => [...prev, ...data])
+              setPage(nextPage)
+              setHasMore(data.length === 20)
+            })
+            .catch(() => {})
+            .finally(() => setLoadingMore(false))
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [token, page, hasMore, loadingMore])
 
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.3)' }}>
@@ -471,10 +502,25 @@ function FeedTab({ token, userId }) {
   )
 
   return (
-    <div ref={feedRef} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {feed.map(session => (
-        <FeedCard key={session.id} session={session} token={token} currentUserId={userId} />
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div ref={feedRef} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {feed.map(session => (
+          <FeedCard key={session.id} session={session} token={token} currentUserId={userId} />
+        ))}
+      </div>
+      {hasMore && (
+        <div ref={sentinelRef} style={{ height: 1 }} />
+      )}
+      {loadingMore && (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+          Chargement…
+        </div>
+      )}
+      {!hasMore && feed.length > 0 && (
+        <div style={{ textAlign: 'center', padding: '16px 0', color: 'rgba(255,255,255,0.15)', fontSize: 12 }}>
+          Tu es à jour !
+        </div>
+      )}
     </div>
   )
 }
@@ -1054,12 +1100,132 @@ function ClassementTab({ token }) {
   )
 }
 
+// ─── GlobalClassementTab ──────────────────────────────────────────────────────
+
+const GLOBAL_METRICS = [
+  { id: 'bench',    label: 'Développé couché', icon: '💪' },
+  { id: 'squat',    label: 'Squat',            icon: '🏋' },
+  { id: 'deadlift', label: 'Soulevé de terre', icon: '⚡' },
+]
+
+function formatPR(entry) {
+  if (!entry.value) return '—'
+  return entry.reps ? `${entry.value} kg × ${entry.reps}` : `${entry.value} kg`
+}
+
+function GlobalClassementTab({ token }) {
+  const [exercise, setExercise] = useState('bench')
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    getGlobalLeaderboard(token, exercise)
+      .then(setData)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [token, exercise])
+
+  const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32']
+  const currentMetric = GLOBAL_METRICS.find(m => m.id === exercise)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Sélecteur de métrique */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {GLOBAL_METRICS.map(m => (
+          <button
+            key={m.id}
+            onClick={() => setExercise(m.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+              background: exercise === m.id ? 'rgba(var(--ac),0.12)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${exercise === m.id ? 'rgba(var(--ac),0.3)' : 'rgba(255,255,255,0.06)'}`,
+              color: exercise === m.id ? 'rgb(var(--ac-l))' : 'rgba(255,255,255,0.4)',
+              fontWeight: 600, fontSize: 13, transition: 'all 0.15s',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>{m.icon}</span>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: 'white' }}>
+          {currentMetric?.icon} {currentMetric?.label} — Meilleur PR
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 3 }}>
+          Tous les utilisateurs inscrits · meilleur poids de tous les temps
+        </div>
+      </div>
+
+      {loading && <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)' }}>Chargement…</div>}
+      {error   && <div style={{ textAlign: 'center', padding: '40px 0', color: '#f87171', fontSize: 14 }}>{error}</div>}
+
+      {!loading && !error && data.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+          Aucune donnée disponible.
+        </div>
+      )}
+
+      {!loading && !error && data.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {data.map((entry, idx) => {
+            const rank = idx + 1
+            const medal = medalColors[idx]
+            return (
+              <div
+                key={entry.user_id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '12px 16px', borderRadius: 14,
+                  background: entry.is_me ? 'rgba(var(--ac),0.07)' : 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${entry.is_me ? 'rgba(var(--ac),0.2)' : 'rgba(255,255,255,0.05)'}`,
+                }}
+              >
+                <div style={{
+                  width: 28, textAlign: 'center', fontWeight: 800, fontSize: 14, shrink: 0,
+                  color: medal || 'rgba(255,255,255,0.25)',
+                }}>
+                  {rank <= 3 ? ['🥇','🥈','🥉'][rank - 1] : rank}
+                </div>
+                <Avatar username={entry.username} avatarUrl={entry.avatar_url} size={34} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: 'white', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {entry.username}
+                    {entry.is_me && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700,
+                        background: 'rgba(var(--ac),0.12)', color: 'rgb(var(--ac-l))',
+                        padding: '2px 7px', borderRadius: 20, border: '1px solid rgba(var(--ac),0.2)',
+                      }}>Toi</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ fontWeight: 700, color: medal || 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'right' }}>
+                  {formatPR(entry)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Social page ──────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'feed', label: 'Feed' },
-  { id: 'amis', label: 'Amis' },
-  { id: 'classement', label: 'Classement' },
+  { id: 'feed',      label: 'Feed' },
+  { id: 'amis',      label: 'Amis' },
+  { id: 'classement',label: 'Classement' },
+  { id: 'global',    label: 'Global' },
 ]
 
 export default function Social() {
@@ -1119,9 +1285,10 @@ export default function Social() {
 
         {/* Tab content */}
         <div ref={tabContentRef}>
-          {activeTab === 'feed' && <FeedTab token={token} userId={user?.id} />}
-          {activeTab === 'amis' && <AmisTab token={token} />}
+          {activeTab === 'feed'       && <FeedTab token={token} userId={user?.id} />}
+          {activeTab === 'amis'       && <AmisTab token={token} />}
           {activeTab === 'classement' && <ClassementTab token={token} />}
+          {activeTab === 'global'     && <GlobalClassementTab token={token} />}
         </div>
       </div>
     </div>

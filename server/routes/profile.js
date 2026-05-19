@@ -41,7 +41,8 @@ router.get('/:userId', async (req, res) => {
     const user = userRes.rows[0]
 
     // ── Stats ─────────────────────────────────────────────────────────────────
-    const [totalSessionsRes, totalVolumeRes, streakRes, activeRes, bestWeightRes] = await Promise.all([
+    const [totalSessionsRes, totalVolumeRes, streakRes, activeRes, bestWeightRes,
+           totalSetsRes, totalRepsRes, distinctExoRes, maxSessionVolRes, monthlyDurRes] = await Promise.all([
       pool.query(
         'SELECT COUNT(*)::int AS total FROM workout_sessions WHERE user_id = $1',
         [targetId]
@@ -82,17 +83,60 @@ router.get('/:userId', async (req, res) => {
          WHERE ws.user_id = $1`,
         [targetId]
       ),
+      pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM workout_sessions ws
+         JOIN session_exercises se ON se.session_id = ws.id
+         JOIN sets s ON s.session_exercise_id = se.id
+         WHERE ws.user_id = $1`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT COALESCE(SUM(s.reps), 0)::bigint AS total
+         FROM workout_sessions ws
+         JOIN session_exercises se ON se.session_id = ws.id
+         JOIN sets s ON s.session_exercise_id = se.id
+         WHERE ws.user_id = $1 AND s.reps IS NOT NULL`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT COUNT(DISTINCT se.exercise_id)::int AS total
+         FROM workout_sessions ws
+         JOIN session_exercises se ON se.session_id = ws.id
+         WHERE ws.user_id = $1`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT COALESCE(MAX(session_vol), 0)::float AS total
+         FROM (
+           SELECT ws.id, SUM(s.weight_kg * s.reps) AS session_vol
+           FROM workout_sessions ws
+           JOIN session_exercises se ON se.session_id = ws.id
+           JOIN sets s ON s.session_exercise_id = se.id
+           WHERE ws.user_id = $1 AND s.weight_kg IS NOT NULL AND s.reps IS NOT NULL
+           GROUP BY ws.id
+         ) sv`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT COALESCE(SUM(duration_min), 0)::int AS total
+         FROM workout_sessions
+         WHERE user_id = $1 AND session_date >= DATE_TRUNC('month', CURRENT_DATE)`,
+        [targetId]
+      ),
     ])
 
     // ── PRs — all exercises, best weight ─────────────────────────────────────
     const prsRes = await pool.query(
       `SELECT DISTINCT ON (e.id)
          e.name AS exercise_name,
+         mg.name AS muscle_group,
          s.weight_kg::float,
          s.reps
        FROM sets s
        JOIN session_exercises se ON se.id = s.session_exercise_id
        JOIN exercises e ON e.id = se.exercise_id
+       LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id
        JOIN workout_sessions ws ON ws.id = se.session_id
        WHERE ws.user_id = $1 AND s.weight_kg IS NOT NULL AND s.reps IS NOT NULL
        ORDER BY e.id, s.weight_kg DESC, s.reps DESC`,
@@ -161,10 +205,15 @@ router.get('/:userId', async (req, res) => {
       birth_date:       user.birth_date,
       active_this_week: activeRes.rows[0].active_this_week,
       stats: {
-        total_sessions: totalSessionsRes.rows[0].total,
-        total_volume:   Math.round(totalVolumeRes.rows[0].total),
-        best_streak:    streakRes.rows[0].best_streak,
-        best_weight:    bestWeightRes.rows[0].best_weight,
+        total_sessions:       totalSessionsRes.rows[0].total,
+        total_volume:         Math.round(totalVolumeRes.rows[0].total),
+        best_streak:          streakRes.rows[0].best_streak,
+        best_weight:          bestWeightRes.rows[0].best_weight,
+        total_sets:           totalSetsRes.rows[0].total,
+        total_reps:           Number(totalRepsRes.rows[0].total),
+        distinct_exercises:   distinctExoRes.rows[0].total,
+        max_session_volume:   maxSessionVolRes.rows[0].total,
+        monthly_duration_min: monthlyDurRes.rows[0].total,
       },
       prs:             prsRes.rows,
       body_weight:     bwRes.rows,

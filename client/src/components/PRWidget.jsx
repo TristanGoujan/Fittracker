@@ -181,6 +181,12 @@ export default function PRWidget({ prs }) {
                 {pr.weight_kg}
                 <span className="text-sm font-normal ml-1" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>kg</span>
               </p>
+              {pr.reps != null && (
+                <p className="text-xs mt-1" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>
+                  1RM est. <span className="font-bold" style={{ color: `${color}cc` }}>{Math.round(pr.weight_kg * (1 + pr.reps / 30) * 10) / 10} kg</span>
+                  <span className="ml-1.5" style={{ color: 'rgba(var(--ac-lt),0.25)' }}>({pr.reps} reps)</span>
+                </p>
+              )}
             </div>
           )
         })}

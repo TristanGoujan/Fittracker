@@ -19,5 +19,6 @@ export const react          = (token, session_id, emoji)  => req('POST',   '/api
 export const getComments    = (token, sessionId)          => req('GET',    `/api/social/session/${sessionId}/comments`, token)
 export const addComment     = (token, sessionId, content) => req('POST',   `/api/social/session/${sessionId}/comment`,  token, { content })
 export const deleteComment  = (token, commentId)          => req('DELETE', `/api/social/comment/${commentId}`,          token)
-export const getLeaderboard    = (token)           => req('GET', '/api/leaderboard/weekly',               token)
-export const getPRLeaderboard  = (token, exercise) => req('GET', `/api/leaderboard/pr?exercise=${exercise}`, token)
+export const getLeaderboard       = (token)           => req('GET', '/api/leaderboard/weekly',                   token)
+export const getPRLeaderboard     = (token, exercise) => req('GET', `/api/leaderboard/pr?exercise=${exercise}`,    token)
+export const getGlobalLeaderboard = (token, exercise) => req('GET', `/api/leaderboard/global?exercise=${exercise}`, token)

@@ -28,6 +28,7 @@ export default function ProgressChart({ data }) {
         ),
         datasets: [
           {
+            label: 'Poids',
             data: data.map((d) => d.weight_kg),
             borderColor: `rgba(${ac},0.9)`,
             backgroundColor: `rgba(${acD},0.08)`,
@@ -39,6 +40,20 @@ export default function ProgressChart({ data }) {
             fill: true,
             tension: 0.35,
           },
+          ...(data.some((d) => d.reps != null) ? [{
+            label: '1RM estimé',
+            data: data.map((d) => d.reps != null ? Math.round(d.weight_kg * (1 + d.reps / 30) * 10) / 10 : null),
+            borderColor: `rgba(168,85,247,0.7)`,
+            backgroundColor: 'transparent',
+            pointBackgroundColor: `rgba(168,85,247,0.8)`,
+            pointBorderColor: 'transparent',
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            borderDash: [5, 4],
+            fill: false,
+            tension: 0.35,
+            spanGaps: true,
+          }] : []),
         ],
       },
       options: {
@@ -50,7 +65,10 @@ export default function ProgressChart({ data }) {
           delay: (ctx) => ctx.type === 'data' ? ctx.dataIndex * 50 : 0,
         },
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: data.some((d) => d.reps != null),
+            labels: { color: `rgba(${acLt},0.5)`, font: { size: 11 }, boxWidth: 20, padding: 12 },
+          },
           tooltip: {
             backgroundColor: 'rgba(8,15,31,0.95)',
             borderColor: `rgba(${ac},0.2)`,
@@ -58,7 +76,7 @@ export default function ProgressChart({ data }) {
             titleColor: `rgba(${acLt},0.6)`,
             bodyColor: '#fff',
             callbacks: {
-              label: (ctx) => ` ${ctx.raw} kg`,
+              label: (ctx) => ctx.raw != null ? ` ${ctx.raw} kg` : '',
             },
           },
         },

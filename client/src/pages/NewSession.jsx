@@ -1,7 +1,8 @@
-import { useReducer, useEffect, useRef, useState } from 'react'
+import { useReducer, useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { animate } from 'animejs'
 import { createSession } from '../api/sessions'
+import { getLastSession } from '../api/stats'
 import { useAuth } from '../hooks/useAuth'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -48,7 +49,7 @@ function reducer(state, action) {
         ...state,
         exercises: state.exercises.map((ex, i) =>
           i === action.index
-            ? { ...ex, sets: [...ex.sets, { weight_kg: '', reps: '' }] }
+            ? { ...ex, sets: [...ex.sets, action.prefill ?? { weight_kg: '', reps: '' }] }
             : ex
         ),
       }
@@ -244,11 +245,109 @@ function NumberControl({ label, value, onChange, step = 1, min = 0 }) {
   )
 }
 
+// ─── Exercise groups for two-step picker ──────────────────────────────────────
+
+const PICKER_GROUPS = {
+  'Pectoraux': [
+    { name: 'Développé incliné', variants: [
+      { label: 'Machine',  fullName: 'Développé incliné machine' },
+      { label: 'Barre',    fullName: 'Développé incliné barre' },
+      { label: 'Haltères', fullName: 'Développé incliné haltères' },
+    ]},
+    { name: 'Développé couché', variants: [
+      { label: 'Machine',  fullName: 'Développé couché machine' },
+      { label: 'Barre',    fullName: 'Développé couché barre' },
+      { label: 'Haltères', fullName: 'Développé couché haltères' },
+    ]},
+    { name: 'Pec deck', variants: [
+      { label: 'Machine',  fullName: 'Pec deck machine' },
+      { label: 'Poulies',  fullName: 'Pec deck poulies' },
+    ]},
+    { name: 'Écarté haltères',  variants: null },
+    { name: 'Pompes',           variants: null },
+  ],
+  'Dos': [
+    { name: 'Tractions',        variants: null },
+    { name: 'Tirage vertical', variants: [
+      { label: 'Machine',       fullName: 'Tirage vertical machine' },
+      { label: 'Poulies',       fullName: 'Tirage vertical poulies' },
+    ]},
+    { name: 'Tirage horizontal machine', variants: [
+      { label: 'Prise large',   fullName: 'Tirage horizontal machine prise large' },
+      { label: 'Prise serrée',  fullName: 'Tirage horizontal machine prise serrée' },
+    ]},
+    { name: 'Tirage horizontal poulies', variants: [
+      { label: 'Prise large',   fullName: 'Tirage horizontal poulies prise large' },
+      { label: 'Prise serrée',  fullName: 'Tirage horizontal poulies prise serrée' },
+    ]},
+    { name: 'Tirage unilatéral poulies', variants: null },
+    { name: 'Shrugs',           variants: null },
+    { name: 'Soulevé de terre', variants: null },
+    { name: 'Pullover',         variants: null },
+  ],
+  'Épaules': [
+    { name: 'Développé militaire',  variants: null },
+    { name: 'Élévations latérales', variants: null },
+    { name: 'Oiseau',               variants: null },
+  ],
+  'Biceps': [
+    { name: 'Curl marteau', variants: [
+      { label: 'Poulies',  fullName: 'Curl marteau poulies' },
+      { label: 'Haltères', fullName: 'Curl marteau haltères' },
+    ]},
+    { name: 'Curl classique', variants: null },
+    { name: 'Curl barre',     variants: null },
+    { name: 'Preacher curl', variants: [
+      { label: 'Machine',  fullName: 'Preacher curl machine' },
+      { label: 'Haltères', fullName: 'Preacher curl haltères' },
+    ]},
+  ],
+  'Triceps': [
+    { name: 'Pushdown poulies', variants: null },
+    { name: 'Dips',             variants: null },
+    { name: 'Kickback', variants: [
+      { label: 'Poulies',  fullName: 'Kickback poulies' },
+      { label: 'Haltères', fullName: 'Kickback haltères' },
+    ]},
+    { name: 'Skull crusher', variants: [
+      { label: 'Haltères', fullName: 'Skull crusher haltères' },
+      { label: 'Barre',    fullName: 'Skull crusher barre' },
+    ]},
+    { name: 'Extension horizontale poulies haute', variants: null },
+  ],
+  'Jambes': [
+    { name: 'Presse à cuisses',        variants: null },
+    { name: 'Squat',                   variants: null },
+    { name: 'Leg extension',           variants: null },
+    { name: 'Leg curl', variants: [
+      { label: 'Assis',   fullName: 'Leg curl assis' },
+      { label: 'Allongé', fullName: 'Leg curl allongé' },
+    ]},
+    { name: 'Fentes bulgares',         variants: null },
+    { name: 'Hip-thrust',              variants: null },
+    { name: 'Hack squat',              variants: null },
+    { name: 'Soulevé de terre roumain', variants: null },
+    { name: 'Extension mollet', variants: [
+      { label: 'Machine',    fullName: 'Extension mollet machine' },
+      { label: 'Presse',     fullName: 'Extension mollet presse' },
+      { label: 'Barre',      fullName: 'Extension mollet barre' },
+      { label: 'Hack squat', fullName: 'Extension mollet hack squat' },
+    ]},
+  ],
+  'Abdominaux': [
+    { name: 'Crunchs',           variants: null },
+    { name: 'Planche',           variants: null },
+    { name: 'Relevés de jambes', variants: null },
+  ],
+}
+
 // ─── ExercisePicker modal ─────────────────────────────────────────────────────
 
 function ExercisePicker({ options, onSelect, onClose }) {
   const [search, setSearch] = useState('')
   const [muscleFilter, setMuscleFilter] = useState('Tous')
+  const [pickerStep, setPickerStep] = useState('groups')
+  const [pendingGroup, setPendingGroup] = useState(null)
   const searchRef = useRef(null)
   const [favs, setFavs] = useState(() => {
     try {
@@ -257,6 +356,10 @@ function ExercisePicker({ options, onSelect, onClose }) {
       return []
     }
   })
+
+  // name → id lookup
+  const nameToId = {}
+  for (const ex of options) nameToId[ex.name] = ex.id
 
   function toggleFav(e, exId) {
     e.stopPropagation()
@@ -269,19 +372,68 @@ function ExercisePicker({ options, onSelect, onClose }) {
 
   useEffect(() => { searchRef.current?.focus() }, [])
 
-  const muscles = ['Tous', ...new Set(options.map((e) => e.muscle_group).filter(Boolean))]
+  const muscles = ['Tous', ...Object.keys(PICKER_GROUPS)]
+  const isSearching = search !== ''
 
-  const filtered = options.filter((e) => {
+  // flat list used in search mode and favorites
+  const flatFiltered = options.filter((e) => {
     const matchMuscle = muscleFilter === 'Tous' || e.muscle_group === muscleFilter
-    const matchSearch = search === '' || e.name.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = !isSearching || e.name.toLowerCase().includes(search.toLowerCase())
     return matchMuscle && matchSearch
   })
-
-  const grouped = filtered.reduce((acc, ex) => {
+  const flatGrouped = flatFiltered.reduce((acc, ex) => {
     const g = ex.muscle_group || 'Autre'
     ;(acc[g] = acc[g] || []).push(ex)
     return acc
   }, {})
+
+  const groupedEntries = Object.entries(PICKER_GROUPS).filter(
+    ([muscle]) => muscleFilter === 'Tous' || muscle === muscleFilter
+  )
+
+  function handleGroupItemClick(item, muscle) {
+    if (!item.variants) {
+      const id = nameToId[item.name]
+      if (id != null) { onSelect(id); onClose() }
+    } else {
+      setPendingGroup({ ...item, muscle })
+      setPickerStep('variants')
+    }
+  }
+
+  function handleVariantClick(fullName) {
+    const id = nameToId[fullName]
+    if (id != null) { onSelect(id); onClose() }
+  }
+
+  function FlatExerciseButton({ ex }) {
+    const color = MUSCLE_COLORS[ex.muscle_group] || '#3b82f6'
+    const isFav = favs.includes(ex.id)
+    return (
+      <button
+        onClick={() => { onSelect(ex.id); onClose() }}
+        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+        style={{ color: 'rgba(255,255,255,0.65)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = `${color}12`; e.currentTarget.style.color = 'white' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)' }}
+      >
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+          <MuscleIcon muscle={ex.muscle_group} size={16} />
+        </div>
+        <span className="font-medium text-sm flex-1">{ex.name}</span>
+        <button
+          onClick={(e) => toggleFav(e, ex.id)}
+          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md transition-all"
+          style={{ color: isFav ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#f59e0b' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = isFav ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}
+          title={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        >
+          {isFav ? '★' : '☆'}
+        </button>
+      </button>
+    )
+  }
 
   return (
     <div
@@ -299,175 +451,128 @@ function ExercisePicker({ options, onSelect, onClose }) {
       >
         {/* Header */}
         <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(59, 130, 246, 0.1)' }}>
-          {/* Drag handle (mobile) */}
           <div className="w-10 h-1 rounded-full mx-auto mb-4 sm:hidden" style={{ background: 'rgba(255,255,255,0.15)' }} />
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-white text-base">Choisir un exercice</h3>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-sm text-zinc-500 hover:text-white transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)' }}
-            >
-              ✕
-            </button>
-          </div>
-          {/* Search */}
-          <div className="relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-              width="15" height="15" viewBox="0 0 24 24"
-              fill="rgba(var(--ac-lt),0.3)"
-            >
-              <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-            </svg>
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher…"
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-white text-sm outline-none placeholder:text-blue-950"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(var(--ac),0.15)' }}
-            />
-          </div>
-        </div>
 
-        {/* Muscle filter pills */}
-        <div
-          className="flex gap-2 px-4 py-3 overflow-x-auto shrink-0"
-          style={{ borderBottom: '1px solid rgba(var(--ac),0.08)' }}
-        >
-          {muscles.map((m) => {
-            const isActive = muscleFilter === m
-            const color = MUSCLE_COLORS[m] || 'rgb(var(--ac-l))'
-            return (
+          {pickerStep === 'variants' && pendingGroup ? (
+            <div className="flex items-center gap-3 mb-4">
               <button
-                key={m}
-                onClick={() => setMuscleFilter(m)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0"
-                style={{
-                  background: isActive ? `${color}22` : 'rgba(255,255,255,0.04)',
-                  border: isActive ? `1px solid ${color}55` : '1px solid rgba(255,255,255,0.06)',
-                  color: isActive ? color : 'rgba(255,255,255,0.3)',
-                }}
+                onClick={() => { setPickerStep('groups'); setPendingGroup(null) }}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-lg transition-colors"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'white' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
               >
-                {m !== 'Tous' ? (
-                  <MuscleIcon muscle={m} size={13} />
-                ) : (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
-                  </svg>
-                )}
-                {m}
+                ‹
               </button>
-            )
-          })}
+              <div className="flex-1">
+                <h3 className="font-bold text-white text-base leading-none">{pendingGroup.name}</h3>
+                <p className="text-xs mt-0.5" style={{ color: MUSCLE_COLORS[pendingGroup.muscle] || '#3b82f6' }}>
+                  {pendingGroup.muscle}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-sm text-zinc-500 hover:text-white transition-colors"
+                style={{ background: 'rgba(255,255,255,0.06)' }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-white text-base">Choisir un exercice</h3>
+                <button
+                  onClick={onClose}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-sm text-zinc-500 hover:text-white transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="15" height="15" viewBox="0 0 24 24" fill="rgba(var(--ac-lt),0.3)">
+                  <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher…"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl text-white text-sm outline-none placeholder:text-blue-950"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(var(--ac),0.15)' }}
+                />
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Exercise list */}
-        <div className="overflow-y-auto flex-1 p-3">
-          {/* Favoris section */}
-          {favs.length > 0 && search === '' && muscleFilter === 'Tous' && (() => {
-            const favExercises = options.filter((e) => favs.includes(e.id))
-            if (favExercises.length === 0) return null
-            return (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 px-2 mb-2">
-                  <span style={{ fontSize: 13 }}>⭐</span>
-                  <span
-                    className="text-xs font-bold uppercase tracking-wider"
-                    style={{ color: '#f59e0b' }}
-                  >
-                    Favoris
-                  </span>
-                  <div className="flex-1 h-px" style={{ background: '#f59e0b20' }} />
-                </div>
-                <div className="space-y-0.5">
-                  {favExercises.map((ex) => {
-                    const color = MUSCLE_COLORS[ex.muscle_group] || '#3b82f6'
-                    const isFav = favs.includes(ex.id)
-                    return (
-                      <button
-                        key={ex.id}
-                        onClick={() => { onSelect(ex.id); onClose() }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group"
-                        style={{ color: 'rgba(255,255,255,0.65)' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = `${color}12`
-                          e.currentTarget.style.color = 'white'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent'
-                          e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
-                        }}
-                      >
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ background: `${color}18` }}
-                        >
-                          <MuscleIcon muscle={ex.muscle_group} size={16} />
-                        </div>
-                        <span className="font-medium text-sm flex-1">{ex.name}</span>
-                        <button
-                          onClick={(e) => toggleFav(e, ex.id)}
-                          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md transition-all"
-                          style={{ color: isFav ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#f59e0b' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = isFav ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}
-                          title={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                        >
-                          {isFav ? '★' : '☆'}
-                        </button>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
+        {/* Muscle filter pills — groups step only */}
+        {pickerStep === 'groups' && (
+          <div className="flex gap-2 px-4 py-3 overflow-x-auto shrink-0" style={{ borderBottom: '1px solid rgba(var(--ac),0.08)' }}>
+            {muscles.map((m) => {
+              const isActive = muscleFilter === m
+              const color = MUSCLE_COLORS[m] || 'rgb(var(--ac-l))'
+              return (
+                <button
+                  key={m}
+                  onClick={() => setMuscleFilter(m)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0"
+                  style={{
+                    background: isActive ? `${color}22` : 'rgba(255,255,255,0.04)',
+                    border: isActive ? `1px solid ${color}55` : '1px solid rgba(255,255,255,0.06)',
+                    color: isActive ? color : 'rgba(255,255,255,0.3)',
+                  }}
+                >
+                  {m !== 'Tous' ? (
+                    <MuscleIcon muscle={m} size={13} />
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
+                    </svg>
+                  )}
+                  {m}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
-          {Object.entries(grouped).map(([muscle, exercises]) => (
-            <div key={muscle} className="mb-4">
-              {muscleFilter === 'Tous' && (
-                <div className="flex items-center gap-2 px-2 mb-2">
-                  <MuscleIcon muscle={muscle} size={13} />
-                  <span
-                    className="text-xs font-bold uppercase tracking-wider"
-                    style={{ color: MUSCLE_COLORS[muscle] || 'rgb(var(--ac-l))' }}
+        {/* Content */}
+        <div className="overflow-y-auto flex-1 p-3">
+
+          {/* ── VARIANTS STEP ── */}
+          {pickerStep === 'variants' && pendingGroup && (
+            <div className="flex flex-col gap-2 pt-1">
+              {pendingGroup.variants.map((v) => {
+                const color = MUSCLE_COLORS[pendingGroup.muscle] || '#3b82f6'
+                const id = nameToId[v.fullName]
+                const isFav = id != null && favs.includes(id)
+                return (
+                  <button
+                    key={v.fullName}
+                    onClick={() => handleVariantClick(v.fullName)}
+                    className="w-full text-left flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all"
+                    style={{ background: `${color}10`, border: `1px solid ${color}25`, color: 'rgba(255,255,255,0.8)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = `${color}22`
+                      e.currentTarget.style.color = 'white'
+                      e.currentTarget.style.borderColor = `${color}55`
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = `${color}10`
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.8)'
+                      e.currentTarget.style.borderColor = `${color}25`
+                    }}
                   >
-                    {muscle}
-                  </span>
-                  <div className="flex-1 h-px" style={{ background: `${MUSCLE_COLORS[muscle] || '#3b82f6'}20` }} />
-                </div>
-              )}
-              <div className="space-y-0.5">
-                {exercises.map((ex) => {
-                  const color = MUSCLE_COLORS[ex.muscle_group] || '#3b82f6'
-                  const isFav = favs.includes(ex.id)
-                  return (
-                    <button
-                      key={ex.id}
-                      onClick={() => { onSelect(ex.id); onClose() }}
-                      className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group"
-                      style={{ color: 'rgba(255,255,255,0.65)' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = `${color}12`
-                        e.currentTarget.style.color = 'white'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
-                      }}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ background: `${color}18` }}
-                      >
-                        <MuscleIcon muscle={ex.muscle_group} size={16} />
-                      </div>
-                      <span className="font-medium text-sm flex-1">{ex.name}</span>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}20` }}>
+                      <MuscleIcon muscle={pendingGroup.muscle} size={18} />
+                    </div>
+                    <span className="font-semibold text-sm flex-1">{v.label}</span>
+                    {id != null && (
                       <button
-                        onClick={(e) => toggleFav(e, ex.id)}
+                        onClick={(e) => toggleFav(e, id)}
                         className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md transition-all"
                         style={{ color: isFav ? '#f59e0b' : 'rgba(255,255,255,0.2)' }}
                         onMouseEnter={(e) => { e.currentTarget.style.color = '#f59e0b' }}
@@ -476,16 +581,107 @@ function ExercisePicker({ options, onSelect, onClose }) {
                       >
                         {isFav ? '★' : '☆'}
                       </button>
-                    </button>
-                  )
-                })}
-              </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
-          ))}
-          {filtered.length === 0 && (
-            <p className="text-center py-12 text-sm" style={{ color: 'rgba(var(--ac-lt),0.2)' }}>
-              Aucun exercice trouvé
-            </p>
+          )}
+
+          {/* ── GROUPS STEP ── */}
+          {pickerStep === 'groups' && (
+            <>
+              {/* Search mode → flat list */}
+              {isSearching ? (
+                <>
+                  {Object.entries(flatGrouped).map(([muscle, exercises]) => (
+                    <div key={muscle} className="mb-4">
+                      {muscleFilter === 'Tous' && (
+                        <div className="flex items-center gap-2 px-2 mb-2">
+                          <MuscleIcon muscle={muscle} size={13} />
+                          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: MUSCLE_COLORS[muscle] || 'rgb(var(--ac-l))' }}>
+                            {muscle}
+                          </span>
+                          <div className="flex-1 h-px" style={{ background: `${MUSCLE_COLORS[muscle] || '#3b82f6'}20` }} />
+                        </div>
+                      )}
+                      <div className="space-y-0.5">
+                        {exercises.map((ex) => <FlatExerciseButton key={ex.id} ex={ex} />)}
+                      </div>
+                    </div>
+                  ))}
+                  {flatFiltered.length === 0 && (
+                    <p className="text-center py-12 text-sm" style={{ color: 'rgba(var(--ac-lt),0.2)' }}>
+                      Aucun exercice trouvé
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Favorites */}
+                  {favs.length > 0 && muscleFilter === 'Tous' && (() => {
+                    const favExercises = options.filter((e) => favs.includes(e.id))
+                    if (favExercises.length === 0) return null
+                    return (
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 px-2 mb-2">
+                          <span style={{ fontSize: 13 }}>⭐</span>
+                          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#f59e0b' }}>Favoris</span>
+                          <div className="flex-1 h-px" style={{ background: '#f59e0b20' }} />
+                        </div>
+                        <div className="space-y-0.5">
+                          {favExercises.map((ex) => <FlatExerciseButton key={ex.id} ex={ex} />)}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Two-step grouped list */}
+                  {groupedEntries.map(([muscle, items]) => {
+                    const color = MUSCLE_COLORS[muscle] || '#3b82f6'
+                    return (
+                      <div key={muscle} className="mb-4">
+                        {muscleFilter === 'Tous' && (
+                          <div className="flex items-center gap-2 px-2 mb-2">
+                            <MuscleIcon muscle={muscle} size={13} />
+                            <span className="text-xs font-bold uppercase tracking-wider" style={{ color }}>
+                              {muscle}
+                            </span>
+                            <div className="flex-1 h-px" style={{ background: `${color}20` }} />
+                          </div>
+                        )}
+                        <div className="space-y-0.5">
+                          {items.map((item) => (
+                            <button
+                              key={item.name}
+                              onClick={() => handleGroupItemClick(item, muscle)}
+                              className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+                              style={{ color: 'rgba(255,255,255,0.65)' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = `${color}12`
+                                e.currentTarget.style.color = 'white'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent'
+                                e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
+                              }}
+                            >
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}18` }}>
+                                <MuscleIcon muscle={muscle} size={16} />
+                              </div>
+                              <span className="font-medium text-sm flex-1">{item.name}</span>
+                              {item.variants && (
+                                <span className="text-base font-light" style={{ color: `${color}99` }}>›</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -508,6 +704,37 @@ export default function NewSession() {
   const [activeSetIdx, setActiveSetIdx] = useState(0)
   const [showPicker, setShowPicker] = useState(false)
   const successRef = useRef(null)
+
+  // ── Timer de séance ──────────────────────────────────────────────────────────
+  const sessionStartRef = useRef(Date.now())
+  const [sessionElapsed, setSessionElapsed] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSessionElapsed(Math.floor((Date.now() - sessionStartRef.current) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  // ── Chronomètre de repos ─────────────────────────────────────────────────────
+  const [rest, setRest] = useState({ active: false, total: 90, remaining: 90 })
+  const restIntervalRef = useRef(null)
+
+  const startRest = useCallback((seconds) => {
+    if (restIntervalRef.current) clearInterval(restIntervalRef.current)
+    setRest({ active: true, total: seconds, remaining: seconds })
+    restIntervalRef.current = setInterval(() => {
+      setRest((prev) => {
+        if (prev.remaining <= 1) {
+          clearInterval(restIntervalRef.current)
+          return { ...prev, active: false, remaining: 0 }
+        }
+        return { ...prev, remaining: prev.remaining - 1 }
+      })
+    }, 1000)
+  }, [])
+
+  useEffect(() => () => { if (restIntervalRef.current) clearInterval(restIntervalRef.current) }, [])
+
+  // ── Dernière perf par exercice ───────────────────────────────────────────────
+  const [lastPerf, setLastPerf] = useState({})
 
   useEffect(() => {
     fetch(`${API}/api/exercises`).then((r) => r.json()).then(setExerciseOptions).catch(() => {})
@@ -560,6 +787,15 @@ export default function NewSession() {
     }
   }, [activeExIdx, state.exercises.length])
 
+  // Charge la dernière perf quand on sélectionne un exercice
+  const activeExerciseId = state.exercises[activeExIdx]?.exercise_id
+  useEffect(() => {
+    if (!activeExerciseId || lastPerf[activeExerciseId] !== undefined) return
+    getLastSession(token, activeExerciseId)
+      .then((rows) => setLastPerf((prev) => ({ ...prev, [activeExerciseId]: rows })))
+      .catch(() => setLastPerf((prev) => ({ ...prev, [activeExerciseId]: [] })))
+  }, [activeExerciseId, token])
+
   function addExercise() {
     dispatch({ type: 'ADD_EXERCISE' })
     setActiveExIdx(state.exercises.length)
@@ -567,10 +803,13 @@ export default function NewSession() {
   }
 
   function validateSet() {
+    const restSecs = activeEx?.rest_seconds ?? 90
+    startRest(restSecs)
     if (activeSetIdx < activeEx.sets.length - 1) {
       setActiveSetIdx((i) => i + 1)
     } else {
-      dispatch({ type: 'ADD_SET', index: activeExIdx })
+      const cur = activeEx.sets[activeSetIdx]
+      dispatch({ type: 'ADD_SET', index: activeExIdx, prefill: { weight_kg: cur.weight_kg, reps: cur.reps } })
       setActiveSetIdx(activeEx.sets.length)
     }
   }
@@ -619,6 +858,15 @@ export default function NewSession() {
   const activeMuscle = activeEx
     ? exerciseOptions.find((e) => e.id === activeEx.exercise_id)?.muscle_group
     : null
+  const currentLastPerf = activeEx ? (lastPerf[activeEx.exercise_id] ?? null) : null
+
+  function fmtElapsed(s) {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = s % 60
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  }
 
   return (
     <div
@@ -633,6 +881,22 @@ export default function NewSession() {
           className="w-72 shrink-0 flex flex-col p-5 overflow-y-auto"
           style={{ borderRight: '1px solid rgba(59, 130, 246, 0.08)' }}
         >
+          {/* Timer de séance */}
+          <div
+            className="flex items-center justify-between mb-4 px-3 py-2 rounded-xl"
+            style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.1)' }}
+          >
+            <div className="flex items-center gap-2">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="rgba(147,197,253,0.45)">
+                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+              </svg>
+              <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(147,197,253,0.35)' }}>Durée</span>
+            </div>
+            <span className="text-sm font-black tabular-nums" style={{ color: 'rgba(147,197,253,0.7)' }}>
+              {fmtElapsed(sessionElapsed)}
+            </span>
+          </div>
+
           {/* Session meta */}
           <div className="mb-5 space-y-3">
             <input
@@ -855,6 +1119,79 @@ export default function NewSession() {
                 </button>
               )}
 
+              {/* Chronomètre de repos */}
+              {rest.active && (
+                <div
+                  className="mb-6 rounded-2xl px-5 py-4 flex items-center justify-between"
+                  style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{ background: 'rgba(59,130,246,0.15)' }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="#60a5fa">
+                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest" style={{ color: 'rgba(147,197,253,0.45)' }}>Repos</p>
+                      <p className="text-2xl font-black tabular-nums text-white leading-none">{fmtElapsed(rest.remaining)}</p>
+                    </div>
+                  </div>
+                  {/* Barre de progression */}
+                  <div className="flex-1 mx-4 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.15)' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-1000"
+                      style={{
+                        width: `${(rest.remaining / rest.total) * 100}%`,
+                        background: rest.remaining > rest.total * 0.3
+                          ? 'linear-gradient(90deg, #3b82f6, #60a5fa)'
+                          : 'linear-gradient(90deg, #f97316, #fb923c)',
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { if (restIntervalRef.current) clearInterval(restIntervalRef.current); setRest((r) => ({ ...r, active: false })) }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+                    style={{ background: 'rgba(59,130,246,0.12)', color: 'rgba(147,197,253,0.6)', border: '1px solid rgba(59,130,246,0.2)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'white' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(147,197,253,0.6)' }}
+                  >
+                    Passer
+                  </button>
+                </div>
+              )}
+
+              {/* Dernière perf */}
+              {currentLastPerf && currentLastPerf.length > 0 && (
+                <div
+                  className="mb-6 rounded-2xl px-4 py-3"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                    Dernière fois · {currentLastPerf[0]?.session_date
+                      ? new Date(currentLastPerf[0].session_date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                      : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {currentLastPerf.map((s, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                        style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)' }}
+                      >
+                        <span className="text-xs font-black" style={{ color: 'rgba(255,255,255,0.2)' }}>S{s.set_number}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
+                          {s.weight_kg != null ? `${s.weight_kg} kg` : '—'} × {s.reps != null ? s.reps : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* NumberControls */}
               <div ref={setFormRef} className="flex gap-4 mb-5">
                 <NumberControl
@@ -991,6 +1328,7 @@ export default function NewSession() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

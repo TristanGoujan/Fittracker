@@ -4,6 +4,8 @@ import { animate } from 'animejs'
 import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip } from 'chart.js'
 import { useAuth } from '../hooks/useAuth'
 import { getPublicProfile } from '../api/profile'
+import Badges from '../components/Badges'
+import { CATEGORIES, ALL_BADGES } from '../data/badges.jsx'
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip)
 
@@ -225,83 +227,501 @@ function WeekScheduleCard({ scheduleRows }) {
   )
 }
 
-// ─── Recent sessions ──────────────────────────────────────────────────────────
+// ─── Recent sessions — timeline style ─────────────────────────────────────────
+
+const SESSION_ACCENT_COLORS = [
+  '#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6', '#f97316',
+]
 
 function RecentSessionsCard({ sessions }) {
   return (
-    <Card title="Séances récentes">
-      <div className="space-y-2">
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(var(--ac),0.1)' }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center gap-3 px-6 py-4"
+        style={{ borderBottom: '1px solid rgba(var(--ac),0.07)' }}
+      >
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: 'rgba(var(--ac-d),0.2)' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="rgb(var(--ac-l))">
+            <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+          </svg>
+        </div>
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(var(--ac-lt),0.5)' }}>
+          Séances récentes
+        </p>
+        <span
+          className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: 'rgba(var(--ac),0.1)', color: 'rgba(var(--ac-lt),0.5)' }}
+        >
+          {sessions.length}
+        </span>
+      </div>
+
+      {/* Timeline */}
+      <div className="px-5 py-4 space-y-0">
         {sessions.map((s, i) => {
           const vol = Math.round(s.volume)
           const dur = formatDuration(s.duration_min)
+          const color = SESSION_ACCENT_COLORS[i % SESSION_ACCENT_COLORS.length]
+          const isLast = i === sessions.length - 1
           return (
-            <div key={s.id}
-              className="flex items-center gap-3 rounded-xl px-4 py-3"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(var(--ac),0.06)' }}
-            >
-              <div className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: `rgba(var(--ac-l),${0.9 - i * 0.1})` }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-sm truncate">{s.name || 'Séance sans nom'}</p>
-                <p className="text-xs mt-0.5" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-                  {formatDate(s.session_date)}
-                  {dur && ` · ${dur}`}
-                  {` · ${s.exercise_count} ex.`}
-                </p>
+            <div key={s.id} className="relative flex gap-4">
+              {/* Timeline track */}
+              <div className="flex flex-col items-center shrink-0" style={{ width: 28 }}>
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center z-10 shrink-0"
+                  style={{
+                    background: i === 0 ? color : `${color}22`,
+                    border: `2px solid ${i === 0 ? color : `${color}44`}`,
+                    boxShadow: i === 0 ? `0 0 12px ${color}55` : 'none',
+                  }}
+                >
+                  {i === 0 ? (
+                    <div className="w-2 h-2 rounded-full" style={{ background: 'white' }} />
+                  ) : (
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                  )}
+                </div>
+                {!isLast && (
+                  <div
+                    className="w-px flex-1 mt-1"
+                    style={{
+                      background: `linear-gradient(to bottom, ${color}33, transparent)`,
+                      minHeight: 16,
+                    }}
+                  />
+                )}
               </div>
-              {vol > 0 && (
-                <span className="text-sm font-black text-white shrink-0">
-                  {vol.toLocaleString('fr-FR')}
-                  <span className="text-xs font-normal ml-0.5" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>kg</span>
-                </span>
-              )}
+
+              {/* Content */}
+              <div className={`flex-1 min-w-0 ${isLast ? 'pb-0' : 'pb-4'}`}>
+                <div
+                  className="rounded-xl px-4 py-3 transition-all"
+                  style={{
+                    background: i === 0 ? `${color}0d` : 'rgba(255,255,255,0.015)',
+                    border: `1px solid ${i === 0 ? `${color}30` : 'rgba(255,255,255,0.04)'}`,
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = `${color}12`
+                    e.currentTarget.style.borderColor = `${color}40`
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = i === 0 ? `${color}0d` : 'rgba(255,255,255,0.015)'
+                    e.currentTarget.style.borderColor = i === 0 ? `${color}30` : 'rgba(255,255,255,0.04)'
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-white truncate leading-tight">
+                        {s.name || 'Séance sans nom'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded-md font-medium"
+                          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}
+                        >
+                          {formatDate(s.session_date)}
+                        </span>
+                        {dur && (
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded-md font-medium flex items-center gap-1"
+                            style={{ background: `${color}15`, color }}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                            </svg>
+                            {dur}
+                          </span>
+                        )}
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded-md font-medium"
+                          style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }}
+                        >
+                          {s.exercise_count} ex.
+                        </span>
+                      </div>
+                    </div>
+                    {vol > 0 && (
+                      <div className="text-right shrink-0">
+                        <p className="font-black text-white leading-none" style={{ fontSize: '1.1rem' }}>
+                          {vol >= 1000 ? `${(vol / 1000).toFixed(1)}t` : vol.toLocaleString('fr-FR')}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: `${color}99` }}>volume</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ─── PRs — sophisticated design ──────────────────────────────────────────────
+
+function PRCard({ prs }) {
+  const [expanded, setExpanded] = useState(false)
+  const [activeGroup, setActiveGroup] = useState(null)
+
+  const ORDER = ['Pectoraux', 'Dos', 'Épaules', 'Biceps', 'Triceps', 'Jambes', 'Abdominaux', 'Autre']
+  const byMuscle = {}
+  for (const pr of prs) {
+    const mg = pr.muscle_group || 'Autre'
+    if (!byMuscle[mg]) byMuscle[mg] = []
+    byMuscle[mg].push(pr)
+  }
+  const allGrouped = Object.keys(byMuscle)
+    .sort((a, b) => (ORDER.indexOf(a) === -1 ? 99 : ORDER.indexOf(a)) - (ORDER.indexOf(b) === -1 ? 99 : ORDER.indexOf(b)))
+    .map(mg => ({ mg, prs: byMuscle[mg] }))
+
+  const allFlat = allGrouped.flatMap(g => g.prs)
+  const LIMIT = 10
+  const hidden = Math.max(0, allFlat.length - LIMIT)
+
+  const visibleGroups = (() => {
+    if (expanded) return allGrouped
+    let count = 0
+    const result = []
+    for (const g of allGrouped) {
+      if (count >= LIMIT) break
+      const slice = g.prs.slice(0, LIMIT - count)
+      result.push({ mg: g.mg, prs: slice })
+      count += slice.length
+    }
+    return result
+  })()
+
+  // Global max weight for relative bar
+  const globalMax = Math.max(...allFlat.map(p => p.weight_kg), 1)
+  const oneRM = (w, r) => r === 1 ? w : Math.round(w * (1 + r / 30) * 10) / 10
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden relative"
+      style={{
+        background: 'linear-gradient(160deg, rgba(10,18,40,0.95) 0%, rgba(5,10,22,0.98) 100%)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+      }}
+    >
+      {/* Ambient glow top-right */}
+      <div className="absolute pointer-events-none" style={{
+        top: -60, right: -60, width: 220, height: 220, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(251,191,36,0.06) 0%, transparent 65%)',
+      }} />
+
+      {/* Header */}
+      <div className="relative flex items-center gap-4 px-6 pt-6 pb-5">
+        {/* Trophy icon with halo */}
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full blur-md" style={{ background: 'rgba(251,191,36,0.25)' }} />
+          <div
+            className="relative w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(251,191,36,0.08))',
+              border: '1px solid rgba(251,191,36,0.3)',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#fbbf24">
+              <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <p className="font-black text-white text-base leading-none tracking-tight">Records personnels</p>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            {prs.length} exercices · meilleure charge soulevée
+          </p>
+        </div>
+        {/* Muscle group pills */}
+        <div className="ml-auto flex gap-1.5 flex-wrap justify-end">
+          {allGrouped.map(({ mg }) => {
+            const color = MUSCLE_COLORS[mg] || '#94a3b8'
+            const isActive = activeGroup === mg
+            return (
+              <button
+                key={mg}
+                onClick={() => setActiveGroup(isActive ? null : mg)}
+                className="text-xs font-bold px-2 py-0.5 rounded-full transition-all"
+                style={{
+                  background: isActive ? `${color}30` : 'rgba(255,255,255,0.05)',
+                  color: isActive ? color : 'rgba(255,255,255,0.25)',
+                  border: `1px solid ${isActive ? `${color}50` : 'rgba(255,255,255,0.06)'}`,
+                }}
+              >
+                {mg}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-6 mb-4 h-px" style={{ background: 'linear-gradient(90deg, rgba(251,191,36,0.15), transparent)' }} />
+
+      {/* PR list */}
+      <div className="px-4 pb-4 space-y-1.5">
+        {visibleGroups
+          .filter(({ mg }) => !activeGroup || mg === activeGroup)
+          .flatMap(({ mg, prs: gPRs }) =>
+            gPRs.map((pr, j) => ({ pr, mg, j, isFirst: j === 0 }))
+          )
+          .map(({ pr, mg, j, isFirst }, globalIdx) => {
+            const color = MUSCLE_COLORS[mg] || '#94a3b8'
+            const rm = oneRM(pr.weight_kg, pr.reps)
+            const barPct = Math.round((pr.weight_kg / globalMax) * 100)
+            return (
+              <div
+                key={`${mg}-${j}`}
+                className="group relative rounded-2xl overflow-hidden cursor-default"
+                style={{ background: 'rgba(255,255,255,0.025)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${color}0e` }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)' }}
+              >
+                {/* Strength fill bar — decorative background */}
+                <div
+                  className="absolute inset-y-0 left-0 rounded-2xl pointer-events-none transition-all duration-700"
+                  style={{
+                    width: `${barPct}%`,
+                    background: `linear-gradient(90deg, ${color}10, transparent)`,
+                  }}
+                />
+
+                <div className="relative flex items-center gap-3 px-4 py-3">
+                  {/* Rank number */}
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-black"
+                    style={{
+                      background: isFirst ? `linear-gradient(135deg, ${color}40, ${color}15)` : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${isFirst ? `${color}40` : 'rgba(255,255,255,0.06)'}`,
+                      color: isFirst ? color : 'rgba(255,255,255,0.2)',
+                      fontSize: isFirst ? 12 : 10,
+                      boxShadow: isFirst ? `0 0 10px ${color}25` : 'none',
+                    }}
+                  >
+                    {globalIdx + 1}
+                  </div>
+
+                  {/* Muscle dot + name */}
+                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: color, boxShadow: `0 0 6px ${color}88` }}
+                    />
+                    <span className="text-sm font-semibold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      {pr.exercise_name}
+                    </span>
+                  </div>
+
+                  {/* Weight */}
+                  <div className="flex items-baseline gap-1 shrink-0">
+                    <span
+                      className="font-black leading-none"
+                      style={{
+                        fontSize: isFirst ? '1.6rem' : '1.25rem',
+                        color: isFirst ? 'white' : 'rgba(255,255,255,0.9)',
+                        textShadow: isFirst ? `0 0 20px ${color}55` : 'none',
+                      }}
+                    >
+                      {pr.weight_kg}
+                    </span>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>kg</span>
+                  </div>
+
+                  {/* × reps */}
+                  <div
+                    className="flex items-center gap-1 shrink-0 px-2 py-1 rounded-lg"
+                    style={{ background: `${color}12`, border: `1px solid ${color}20` }}
+                  >
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>×</span>
+                    <span className="font-black text-sm leading-none" style={{ color }}>
+                      {pr.reps}
+                    </span>
+                    <span className="text-xs font-medium" style={{ color: `${color}70` }}>rep</span>
+                  </div>
+
+                  {/* 1RM */}
+                  <div className="text-right shrink-0" style={{ minWidth: 52 }}>
+                    <p className="font-black text-sm leading-none" style={{ color: '#fbbf24' }}>~{rm}</p>
+                    <p className="mt-0.5 font-semibold" style={{ color: 'rgba(251,191,36,0.35)', fontSize: 9 }}>1RM est.</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+      </div>
+
+      {/* Show more */}
+      {allFlat.length > LIMIT && !activeGroup && (
+        <div className="px-4 pb-5">
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="w-full rounded-xl py-3 text-xs font-bold transition-all flex items-center justify-center gap-2"
+            style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px dashed rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.25)',
+              letterSpacing: '0.05em',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+              e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'rgba(255,255,255,0.25)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+              e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+            }}
+          >
+            {expanded
+              ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>RÉDUIRE</>
+              : <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>{hidden} RECORDS SUPPLÉMENTAIRES</>
+            }
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Compact badges card ──────────────────────────────────────────────────────
+
+function BadgesCard({ stats, onSeeAll }) {
+  if (!stats) return null
+
+  const unlocked = ALL_BADGES.filter(b => b.check(stats)).length
+  // Pick the highest earned badge per category (most impressive per pillar)
+  const highlights = CATEGORIES.flatMap(cat => {
+    const earned = cat.badges.filter(b => b.check(stats))
+    return earned.length > 0 ? [earned[earned.length - 1]] : []
+  })
+
+  if (highlights.length === 0) return null
+
+  return (
+    <Card title="">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>
+            Badges obtenus
+          </p>
+          <span
+            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(var(--ac),0.12)', color: 'rgba(var(--ac-lt),0.6)' }}
+          >
+            {unlocked} / {ALL_BADGES.length}
+          </span>
+        </div>
+        <button
+          onClick={onSeeAll}
+          className="text-xs font-semibold transition-colors flex items-center gap-1"
+          style={{ color: 'rgba(var(--ac-l),0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgb(var(--ac-l))' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(var(--ac-l),0.45)' }}
+        >
+          Voir tous
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 rounded-full mb-5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{
+            width: `${(unlocked / ALL_BADGES.length) * 100}%`,
+            background: 'linear-gradient(90deg, rgb(var(--ac-d)), rgb(var(--ac-l)))',
+          }}
+        />
+      </div>
+
+      {/* Grid — one best badge per category */}
+      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))' }}>
+        {highlights.map(badge => (
+          <div
+            key={badge.id}
+            title={`${badge.label} — ${badge.desc}`}
+            className="rounded-xl p-2.5 flex flex-col items-center text-center gap-1.5 cursor-default transition-all"
+            style={{
+              background: `${badge.color}10`,
+              border: `1px solid ${badge.color}28`,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 14px ${badge.color}22` }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}
+          >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${badge.color}20` }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill={badge.color}>
+                {badge.icon}
+              </svg>
+            </div>
+            <p className="font-bold leading-tight" style={{ fontSize: 10, color: badge.color, lineHeight: 1.2 }}>
+              {badge.label}
+            </p>
+          </div>
+        ))}
       </div>
     </Card>
   )
 }
 
-// ─── PRs ──────────────────────────────────────────────────────────────────────
+// ─── Full badges modal ─────────────────────────────────────────────────────────
 
-function PRCard({ prs }) {
-  const [expanded, setExpanded] = useState(false)
-  const shown = expanded ? prs : prs.slice(0, 6)
+function BadgesModal({ stats, onClose }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   return (
-    <Card title="Records personnels">
-      <div className="space-y-2">
-        {shown.map((pr, i) => {
-          const color = Object.entries(MUSCLE_COLORS).find(([k]) => pr.exercise_name?.toLowerCase().includes(k.toLowerCase()))?.[1] || 'rgb(var(--ac-l))'
-          return (
-            <div key={i}
-              className="flex items-center justify-between gap-3 rounded-xl px-4 py-2.5"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(var(--ac),0.06)' }}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-sm text-white truncate">{pr.exercise_name}</span>
-              </div>
-              <span className="text-sm font-bold shrink-0" style={{ color: 'rgb(var(--ac-l))' }}>
-                {pr.weight_kg} kg × {pr.reps}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-      {prs.length > 6 && (
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="mt-3 text-xs font-semibold transition-colors"
-          style={{ color: 'rgba(var(--ac-l),0.5)' }}
-          onMouseEnter={e => { e.currentTarget.style.color = 'rgb(var(--ac-l))' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(var(--ac-l),0.5)' }}
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full sm:max-w-2xl rounded-2xl flex flex-col overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #0c1a35 0%, #060e1e 100%)',
+          border: '1px solid rgba(59,130,246,0.2)',
+          maxHeight: '88vh',
+        }}
+      >
+        {/* Modal header */}
+        <div
+          className="flex items-center justify-between px-6 py-4 shrink-0"
+          style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}
         >
-          {expanded ? '↑ Voir moins' : `↓ Voir ${prs.length - 6} de plus`}
-        </button>
-      )}
-    </Card>
+          <p className="font-bold text-white text-sm">Tous les badges</p>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-sm transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'white' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
+          >
+            ✕
+          </button>
+        </div>
+        {/* Full Badges component */}
+        <div className="overflow-y-auto flex-1 px-6 py-5">
+          <Badges stats={stats} />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -334,9 +754,10 @@ export default function FriendProfile() {
   const { userId } = useParams()
   const { token } = useAuth()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [profile, setProfile]         = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState(null)
+  const [showBadges, setShowBadges]   = useState(false)
   const sectionsRef = useRef(null)
 
   // Stat counters (safe to call unconditionally — skip when target is 0/undefined)
@@ -544,6 +965,9 @@ export default function FriendProfile() {
               </div>
             </div>
 
+            {/* ── Badges ─────────────────────────────────────────────────────── */}
+            <BadgesCard stats={profile.stats} onSeeAll={() => setShowBadges(true)} />
+
             {/* ── Weekly schedule ────────────────────────────────────────────── */}
             {profile.schedule && profile.schedule.length > 0 && (
               <WeekScheduleCard scheduleRows={profile.schedule} />
@@ -567,6 +991,10 @@ export default function FriendProfile() {
           </div>
         )}
       </main>
+
+      {showBadges && profile && (
+        <BadgesModal stats={profile.stats} onClose={() => setShowBadges(false)} />
+      )}
     </div>
   )
 }

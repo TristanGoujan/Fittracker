@@ -6,31 +6,66 @@ const SEED_MUSCLE_GROUPS = [
 
 const SEED_EXERCISES = [
   // [name, muscle_group, equipment]
-  ['Développé couché', 'Pectoraux', 'Barre'],
-  ['Développé incliné', 'Pectoraux', 'Haltères'],
-  ['Écarté haltères', 'Pectoraux', 'Haltères'],
-  ['Dips pectoraux', 'Pectoraux', 'Barre parallèle'],
-  ['Tractions', 'Dos', 'Barre'],
-  ['Rowing barre', 'Dos', 'Barre'],
-  ['Tirage vertical', 'Dos', 'Poulie'],
-  ['Soulevé de terre', 'Dos', 'Barre'],
-  ['Développé militaire', 'Épaules', 'Barre'],
-  ['Élévations latérales', 'Épaules', 'Haltères'],
-  ['Oiseau', 'Épaules', 'Haltères'],
-  ['Curl barre', 'Biceps', 'Barre'],
-  ['Curl haltères', 'Biceps', 'Haltères'],
-  ['Curl marteau', 'Biceps', 'Haltères'],
-  ['Extension triceps poulie', 'Triceps', 'Poulie'],
-  ['Dips triceps', 'Triceps', 'Barre parallèle'],
-  ['Barre au front', 'Triceps', 'Barre'],
-  ['Squat', 'Jambes', 'Barre'],
-  ['Presse à cuisses', 'Jambes', 'Machine'],
-  ['Leg curl', 'Jambes', 'Machine'],
-  ['Fentes', 'Jambes', 'Haltères'],
-  ['Mollets debout', 'Jambes', 'Machine'],
-  ['Crunchs', 'Abdominaux', 'Poids de corps'],
-  ['Planche', 'Abdominaux', 'Poids de corps'],
-  ['Relevés de jambes', 'Abdominaux', 'Poids de corps'],
+  // ── Pectoraux ──────────────────────────────────────────────────────────────
+  ['Développé incliné machine',             'Pectoraux', 'Machine'],
+  ['Développé incliné barre',               'Pectoraux', 'Barre'],
+  ['Développé incliné haltères',            'Pectoraux', 'Haltères'],
+  ['Développé couché machine',              'Pectoraux', 'Machine'],
+  ['Développé couché barre',                'Pectoraux', 'Barre'],
+  ['Développé couché haltères',             'Pectoraux', 'Haltères'],
+  ['Pec deck machine',                      'Pectoraux', 'Machine'],
+  ['Pec deck poulies',                      'Pectoraux', 'Poulies'],
+  ['Écarté haltères',                       'Pectoraux', 'Haltères'],
+  ['Pompes',                                'Pectoraux', 'Poids de corps'],
+  // ── Dos ────────────────────────────────────────────────────────────────────
+  ['Tractions',                             'Dos', 'Barre'],
+  ['Tirage vertical machine',               'Dos', 'Machine'],
+  ['Tirage vertical poulies',               'Dos', 'Poulies'],
+  ['Tirage horizontal machine prise large', 'Dos', 'Machine'],
+  ['Tirage horizontal machine prise serrée','Dos', 'Machine'],
+  ['Tirage horizontal poulies prise large', 'Dos', 'Poulies'],
+  ['Tirage horizontal poulies prise serrée','Dos', 'Poulies'],
+  ['Tirage unilatéral poulies',             'Dos', 'Poulies'],
+  ['Shrugs',                                'Dos', 'Haltères'],
+  ['Soulevé de terre',                      'Dos', 'Barre'],
+  ['Pullover',                              'Dos', 'Haltères'],
+  // ── Épaules ────────────────────────────────────────────────────────────────
+  ['Développé militaire',                   'Épaules', 'Barre'],
+  ['Élévations latérales',                  'Épaules', 'Haltères'],
+  ['Oiseau',                                'Épaules', 'Haltères'],
+  // ── Biceps ─────────────────────────────────────────────────────────────────
+  ['Curl marteau poulies',                  'Biceps', 'Poulies'],
+  ['Curl marteau haltères',                 'Biceps', 'Haltères'],
+  ['Curl classique',                        'Biceps', 'Haltères'],
+  ['Curl barre',                            'Biceps', 'Barre'],
+  ['Preacher curl machine',                 'Biceps', 'Machine'],
+  ['Preacher curl haltères',                'Biceps', 'Haltères'],
+  // ── Triceps ────────────────────────────────────────────────────────────────
+  ['Pushdown poulies',                      'Triceps', 'Poulies'],
+  ['Dips',                                  'Triceps', 'Poids de corps'],
+  ['Kickback poulies',                      'Triceps', 'Poulies'],
+  ['Kickback haltères',                     'Triceps', 'Haltères'],
+  ['Skull crusher haltères',                'Triceps', 'Haltères'],
+  ['Skull crusher barre',                   'Triceps', 'Barre'],
+  ['Extension horizontale poulies haute',   'Triceps', 'Poulies'],
+  // ── Jambes ─────────────────────────────────────────────────────────────────
+  ['Presse à cuisses',                      'Jambes', 'Machine'],
+  ['Squat',                                 'Jambes', 'Barre'],
+  ['Leg extension',                         'Jambes', 'Machine'],
+  ['Leg curl assis',                        'Jambes', 'Machine'],
+  ['Leg curl allongé',                      'Jambes', 'Machine'],
+  ['Fentes bulgares',                       'Jambes', 'Haltères'],
+  ['Hip-thrust',                            'Jambes', 'Barre'],
+  ['Hack squat',                            'Jambes', 'Machine'],
+  ['Soulevé de terre roumain',              'Jambes', 'Barre'],
+  ['Extension mollet presse',               'Jambes', 'Machine'],
+  ['Extension mollet barre',                'Jambes', 'Barre'],
+  ['Extension mollet hack squat',           'Jambes', 'Machine'],
+  ['Extension mollet machine',              'Jambes', 'Machine'],
+  // ── Abdominaux ─────────────────────────────────────────────────────────────
+  ['Crunchs',                               'Abdominaux', 'Poids de corps'],
+  ['Planche',                               'Abdominaux', 'Poids de corps'],
+  ['Relevés de jambes',                     'Abdominaux', 'Poids de corps'],
 ]
 
 async function initSchema() {
@@ -140,6 +175,31 @@ async function initSchema() {
       [name]
     )
   }
+
+  // Migration 005 — refonte de la liste d'exercices
+  // Supprime les anciens exercices qui ne sont plus dans la nouvelle liste
+  // UNIQUEMENT s'ils n'ont aucun historique (aucune session_exercises associée)
+  await pool.query(`
+    DELETE FROM exercises
+    WHERE name IN (
+      'Développé couché',
+      'Développé incliné',
+      'Dips pectoraux',
+      'Rowing barre',
+      'Tirage vertical',
+      'Extension triceps poulie',
+      'Dips triceps',
+      'Barre au front',
+      'Curl haltères',
+      'Curl marteau',
+      'Leg curl',
+      'Fentes',
+      'Mollets debout'
+    )
+    AND id NOT IN (
+      SELECT DISTINCT exercise_id FROM session_exercises WHERE exercise_id IS NOT NULL
+    )
+  `)
 
   // Seed exercises
   for (const [name, muscleGroup, equipment] of SEED_EXERCISES) {

@@ -149,6 +149,25 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Au moins un exercice est requis' })
   }
 
+  const MAX_WEIGHT_KG = 500
+  const MAX_REPS      = 999
+  for (const ex of exercises) {
+    for (const set of ex.sets ?? []) {
+      if (set.weight_kg != null && set.weight_kg > MAX_WEIGHT_KG) {
+        return res.status(400).json({ error: `Poids maximum autorisé : ${MAX_WEIGHT_KG} kg par série.` })
+      }
+      if (set.weight_kg != null && set.weight_kg < 0) {
+        return res.status(400).json({ error: 'Le poids ne peut pas être négatif.' })
+      }
+      if (set.reps != null && set.reps > MAX_REPS) {
+        return res.status(400).json({ error: `Nombre de reps maximum autorisé : ${MAX_REPS}.` })
+      }
+      if (set.reps != null && set.reps < 0) {
+        return res.status(400).json({ error: 'Le nombre de reps ne peut pas être négatif.' })
+      }
+    }
+  }
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')

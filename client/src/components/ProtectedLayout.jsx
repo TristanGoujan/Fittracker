@@ -1,8 +1,18 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import { animate } from 'animejs'
 import ProtectedRoute from './ProtectedRoute'
 import Navbar from './Navbar'
 
 export default function ProtectedLayout() {
+  const mainRef = useRef(null)
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!mainRef.current) return
+    animate(mainRef.current, { opacity: [0, 1], duration: 220, easing: 'easeOutQuad' })
+  }, [location.pathname])
+
   return (
     <ProtectedRoute>
       <div
@@ -10,7 +20,7 @@ export default function ProtectedLayout() {
         style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
       >
         <Navbar />
-        <main className="flex-1 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

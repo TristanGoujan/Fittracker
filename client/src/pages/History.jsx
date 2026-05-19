@@ -17,105 +17,53 @@ const MUSCLE_COLORS = {
   'Autre':      '#71717a',
 }
 
+const RANGE_OPTIONS = [
+  { label: '7 derniers jours',  days: 7 },
+  { label: '30 derniers jours', days: 30 },
+  { label: '90 derniers jours', days: 90 },
+  { label: 'Toute la période',  days: 9999 },
+]
+
 function formatDateShort(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()
 }
 
 function formatDuration(min) {
-  if (!min) return null
+  if (!min) return '—'
   const h = Math.floor(min / 60)
   const m = min % 60
-  if (h === 0) return `${m}`
-  return m === 0 ? `${h * 60}` : `${h * 60 + m}`
+  if (h === 0) return `${m} min`
+  return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
-function groupByMonth(sessions) {
-  const groups = {}
-  sessions.forEach((s) => {
-    const key = new Date(s.session_date + 'T00:00:00').toLocaleDateString('fr-FR', {
-      month: 'long', year: 'numeric',
-    })
-    if (!groups[key]) groups[key] = []
-    groups[key].push(s)
-  })
-  return groups
+// ─── Mini progress chart wrapper ──────────────────────────────────────────────
+function ProgressChartInline({ exoId }) {
+  const { token } = useAuth()
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    if (!exoId) return
+    setLoading(true)
+    getProgress(token, exoId).then(setData).finally(() => setLoading(false))
+  }, [exoId, token])
+  if (loading) return <div className="h-28 rounded-lg animate-pulse" style={{ background: 'rgba(255,255,255,0.03)' }} />
+  return <ProgressChart data={data} />
 }
 
-// ─── Left panel session card ──────────────────────────────────────────────────
-
-function SessionCard({ session, isSelected, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left px-5 py-4 transition-all"
-      style={{
-        background: isSelected ? 'rgba(var(--ac-d),0.12)' : 'transparent',
-        borderLeft: isSelected ? '2px solid rgb(var(--ac))' : '2px solid transparent',
-        borderBottom: '1px solid rgba(var(--ac),0.06)',
-      }}
-      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
-    >
-      <p className="text-xs font-bold mb-1" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-        {formatDateShort(session.session_date)}
-      </p>
-      <p className="text-white font-black text-base uppercase tracking-tight leading-tight mb-3">
-        {session.name || 'Séance sans nom'}
-      </p>
-      <div className="flex items-center gap-3 flex-wrap">
-        {session.duration_min && (
-          <span className="flex items-center gap-1">
-            <span className="text-white font-bold text-sm">{formatDuration(session.duration_min)}</span>
-            <span className="text-xs font-semibold" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>MIN</span>
-          </span>
-        )}
-        {session.volume > 0 && (
-          <span className="flex items-center gap-1">
-            <span className="text-white font-bold text-sm">
-              {Math.round(session.volume).toLocaleString('fr-FR')}
-            </span>
-            <span className="text-xs font-semibold" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>KG</span>
-          </span>
-        )}
-        {session.exercise_count > 0 && (
-          <span
-            className="text-xs font-black px-2 py-0.5 rounded-md"
-            style={{
-              background: isSelected ? 'rgba(var(--ac),0.3)' : 'rgba(255,255,255,0.08)',
-              color: isSelected ? 'rgb(var(--ac-lt))' : 'rgba(255,255,255,0.5)',
-            }}
-          >
-            {session.exercise_count}
-          </span>
-        )}
-        <span
-          className="ml-auto text-xs font-bold uppercase tracking-widest"
-          style={{ color: isSelected ? 'rgb(var(--ac-l))' : 'rgba(var(--ac-lt),0.2)' }}
-        >
-          {isSelected ? 'Vue active' : 'Voir →'}
-        </span>
-      </div>
-    </button>
-  )
-}
-
-// ─── Right panel detail ───────────────────────────────────────────────────────
-
+// ─── Detail panel ─────────────────────────────────────────────────────────────
 function DetailPanel({ session, prMap, onDelete, deleting, onSelectExo, selectedExoId }) {
   const navigate = useNavigate()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const confirmRef = useRef(null)
 
   useEffect(() => {
-    if (confirmDelete && confirmRef.current) {
+    if (confirmDelete && confirmRef.current)
       animate(confirmRef.current, { scale: [0.9, 1.05, 1], duration: 320, easing: 'easeOutBack' })
-    }
   }, [confirmDelete])
 
   const totalVolume = session.exercises.reduce(
-    (sum, ex) => sum + ex.sets.reduce((s2, set) => s2 + (set.weight_kg ?? 0) * (set.reps ?? 0), 0),
-    0
+    (sum, ex) => sum + ex.sets.reduce((s2, set) => s2 + (set.weight_kg ?? 0) * (set.reps ?? 0), 0), 0
   )
   const topExercise = session.exercises.reduce((best, ex) => {
     const vol = ex.sets.reduce((s, set) => s + (set.weight_kg ?? 0) * (set.reps ?? 0), 0)
@@ -123,228 +71,205 @@ function DetailPanel({ session, prMap, onDelete, deleting, onSelectExo, selected
   }, null)
 
   return (
-    <div className="p-7 max-w-lg">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-            {formatDateShort(session.session_date)}
-          </p>
-          <h2 className="text-3xl font-black uppercase tracking-tight text-white leading-none">
-            {session.name || 'Séance sans nom'}
-          </h2>
-        </div>
-        <button
-          onClick={() => navigate(`/sessions/${session.id}`)}
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all mt-1"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(var(--ac-lt),0.5)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(var(--ac-lt),0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-          title="Voir la page complète"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
-          </svg>
-        </button>
-      </div>
-
-      {/* Summary metrics */}
+    <div className="h-full flex flex-col">
+      {/* Detail header */}
       <div
-        className="rounded-xl p-4 mb-5"
-        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.1)' }}
+        className="px-8 py-6 shrink-0"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
       >
-        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-          Résumé
-        </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
-              Exercice principal
+            <p className="text-xs font-bold tracking-widest mb-1.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {formatDateShort(session.session_date)}
             </p>
-            <p className="text-white font-bold text-sm truncate">
-              {topExercise?.exercise_name ?? '—'}
-            </p>
+            <h2 className="font-black uppercase tracking-tight text-white leading-none" style={{ fontSize: '1.6rem' }}>
+              {session.name || 'Séance sans nom'}
+            </h2>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
-              Volume total
-            </p>
-            <p className="text-white font-bold text-sm">
-              {Math.round(totalVolume).toLocaleString('fr-FR')}
-              <span className="text-xs font-normal ml-1" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>KG</span>
-            </p>
-          </div>
-          {session.duration_min && (
-            <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
-                Durée
-              </p>
-              <p className="text-white font-bold text-sm">
-                {session.duration_min}
-                <span className="text-xs font-normal ml-1" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>MIN</span>
-              </p>
-            </div>
-          )}
-          <div>
-            <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
-              Exercices
-            </p>
-            <p className="text-white font-bold text-sm">{session.exercises.length}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Exercise log */}
-      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-        Journal d'exercices
-      </p>
-
-      <div className="space-y-3 mb-6">
-        {session.exercises.map((ex) => {
-          const color = MUSCLE_COLORS[ex.muscle_group] || '#3b82f6'
-          const maxWeight = Math.max(...ex.sets.map((s) => s.weight_kg ?? 0))
-          const isGlobalPR = prMap[ex.exercise_id] != null && maxWeight >= prMap[ex.exercise_id]
-
-          return (
-            <div
-              key={ex.se_id}
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.08)' }}
-            >
-              {/* Exercise header */}
-              <div
-                className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: '1px solid rgba(var(--ac),0.06)' }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                  <p className="text-white font-bold text-sm">{ex.exercise_name}</p>
-                  <span
-                    className="text-xs font-semibold px-2 py-0.5 rounded-md"
-                    style={{ background: `${color}18`, color: `${color}cc` }}
-                  >
-                    {ex.muscle_group}
-                  </span>
-                </div>
-                {isGlobalPR && (
-                  <span
-                    className="text-xs font-black px-2 py-0.5 rounded-md"
-                    style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}
-                  >
-                    PR
-                  </span>
-                )}
-              </div>
-
-              {/* Sets */}
-              <div className="px-4 py-2 space-y-1">
-                {ex.sets.map((set) => {
-                  const isBestSet = set.weight_kg === maxWeight && set.weight_kg > 0
-                  const isPRSet = isBestSet && isGlobalPR
-                  return (
-                    <div
-                      key={set.set_number}
-                      className="flex items-center justify-between py-1.5 rounded-lg px-2 transition-colors"
-                      style={isPRSet ? { background: 'rgba(251,191,36,0.06)' } : {}}
-                    >
-                      <span
-                        className="text-xs font-bold uppercase tracking-widest w-12"
-                        style={{ color: isPRSet ? 'rgba(251,191,36,0.6)' : 'rgba(var(--ac-lt),0.3)' }}
-                      >
-                        Set {set.set_number}
-                      </span>
-                      <span className="text-sm font-semibold" style={{ color: isPRSet ? '#fde68a' : 'rgba(255,255,255,0.75)' }}>
-                        {set.weight_kg != null ? set.weight_kg : '—'} KG × {set.reps != null ? set.reps : '—'}
-                        {isPRSet && (
-                          <span
-                            className="ml-2 text-xs font-black"
-                            style={{ color: '#fbbf24' }}
-                          >
-                            (PR)
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Progression section */}
-      <div
-        className="rounded-xl p-4 mb-6"
-        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.08)' }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-            Progression
-          </p>
-          <select
-            value={selectedExoId ?? ''}
-            onChange={(e) => onSelectExo(Number(e.target.value))}
-            className="text-xs rounded-lg px-2.5 py-1 outline-none"
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(var(--ac),0.15)',
-              color: 'rgba(var(--ac-lt),0.7)',
-            }}
+          <button
+            onClick={() => navigate(`/sessions/${session.id}`)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.07)' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
+            title="Voir la page complète"
           >
-            {session.exercises.map((ex) => (
-              <option key={ex.exercise_id} value={ex.exercise_id} style={{ background: '#080f1f' }}>
-                {ex.exercise_name}
-              </option>
-            ))}
-          </select>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+            </svg>
+          </button>
         </div>
-        <ProgressChartInline exoId={selectedExoId} />
       </div>
 
-      {/* Notes */}
-      {session.notes && (
-        <div
-          className="rounded-xl p-4 mb-6"
-          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(var(--ac),0.07)' }}
-        >
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'rgba(var(--ac-lt),0.35)' }}>
-            Notes
+      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        {/* Summary metrics */}
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            Résumé de séance
           </p>
-          <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{session.notes}</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Exercice principal', value: topExercise?.exercise_name ?? '—', truncate: true },
+              { label: 'Volume total', value: `${Math.round(totalVolume).toLocaleString('fr-FR')} kg` },
+              { label: 'Durée', value: formatDuration(session.duration_min) },
+              { label: 'Exercices', value: session.exercises.length },
+            ].map(stat => (
+              <div
+                key={stat.label}
+                className="rounded-xl px-4 py-3"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <p className="text-xs uppercase tracking-widest mb-1.5" style={{ color: 'rgba(255,255,255,0.22)' }}>
+                  {stat.label}
+                </p>
+                <p className={`font-bold text-white text-sm ${stat.truncate ? 'truncate' : ''}`}>
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
 
-      {/* Actions */}
-      <div className="flex gap-3">
+        {/* Exercise log */}
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            Détail des exercices
+          </p>
+          <div className="space-y-3">
+            {session.exercises.map((ex) => {
+              const color = MUSCLE_COLORS[ex.muscle_group] || '#3b82f6'
+              const maxWeight = Math.max(...ex.sets.map(s => s.weight_kg ?? 0))
+              const isGlobalPR = prMap[ex.exercise_id] != null && maxWeight >= prMap[ex.exercise_id]
+              return (
+                <div key={ex.se_id} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {/* Exercise header */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3"
+                    style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: color, boxShadow: `0 0 6px ${color}88` }}
+                      />
+                      <span className="font-bold text-sm text-white">{ex.exercise_name}</span>
+                    </div>
+                    {isGlobalPR && (
+                      <span
+                        className="text-xs font-black px-2 py-0.5 rounded-md tracking-wider"
+                        style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)' }}
+                      >
+                        PR
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Sets */}
+                  <div style={{ background: 'rgba(0,0,0,0.15)' }}>
+                    {ex.sets.map((set) => {
+                      const isBest = set.weight_kg === maxWeight && set.weight_kg > 0
+                      const isPR = isBest && isGlobalPR
+                      return (
+                        <div
+                          key={set.set_number}
+                          className="flex items-center px-4 py-2.5 transition-colors"
+                          style={{
+                            borderBottom: '1px solid rgba(255,255,255,0.025)',
+                            background: isPR ? 'rgba(251,191,36,0.04)' : 'transparent',
+                          }}
+                        >
+                          <span
+                            className="text-xs font-black uppercase tracking-widest w-14 shrink-0"
+                            style={{ color: isPR ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.2)' }}
+                          >
+                            Set {set.set_number}
+                          </span>
+                          <span
+                            className="font-semibold text-sm flex-1"
+                            style={{ color: isPR ? '#fde68a' : 'rgba(255,255,255,0.7)' }}
+                          >
+                            {set.weight_kg != null ? set.weight_kg : '—'} KG × {set.reps != null ? set.reps : '—'}
+                          </span>
+                          {isPR && (
+                            <span className="text-xs font-black tracking-wider" style={{ color: '#fbbf24' }}>(PR)</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Progression chart */}
+        {session.exercises.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                Progression
+              </p>
+              <select
+                value={selectedExoId ?? ''}
+                onChange={e => onSelectExo(Number(e.target.value))}
+                className="text-xs rounded-lg px-2.5 py-1.5 outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}
+              >
+                {session.exercises.map(ex => (
+                  <option key={ex.exercise_id} value={ex.exercise_id} style={{ background: '#080f1f' }}>
+                    {ex.exercise_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <ProgressChartInline exoId={selectedExoId} />
+          </div>
+        )}
+
+        {/* Notes */}
+        {session.notes && (
+          <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.2)' }}>Notes</p>
+            <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{session.notes}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom actions */}
+      <div
+        className="shrink-0 px-8 py-5 flex items-center gap-3"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+      >
         <button
           onClick={() => navigate('/new', { state: { template: session } })}
-          className="flex-1 text-xs font-bold uppercase tracking-widest py-3 rounded-xl transition-all"
+          className="flex-1 text-xs font-black uppercase tracking-widest py-3 rounded-xl transition-all"
           style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(var(--ac),0.15)',
-            color: 'rgba(var(--ac-lt),0.5)',
+            background: 'rgba(var(--ac-d),0.15)',
+            border: '1px solid rgba(var(--ac),0.25)',
+            color: 'rgb(var(--ac-l))',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'rgb(var(--ac-lt))'; e.currentTarget.style.borderColor = 'rgba(var(--ac),0.35)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(var(--ac-lt),0.5)'; e.currentTarget.style.borderColor = 'rgba(var(--ac),0.15)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(var(--ac-d),0.3)'; e.currentTarget.style.borderColor = 'rgba(var(--ac),0.5)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(var(--ac-d),0.15)'; e.currentTarget.style.borderColor = 'rgba(var(--ac),0.25)' }}
         >
           Répéter la séance
         </button>
+
         {confirmDelete ? (
           <div ref={confirmRef} className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: 'rgba(var(--ac-lt),0.4)' }}>Confirmer ?</span>
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Confirmer ?</span>
             <button
               onClick={onDelete}
               disabled={deleting}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+              className="text-xs font-bold px-3 py-2 rounded-lg"
               style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
             >
               {deleting ? '…' : 'Oui'}
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
-              className="text-xs px-3 py-1.5 rounded-lg"
-              style={{ color: 'rgba(var(--ac-lt),0.4)' }}
+              className="text-xs px-3 py-2 rounded-lg"
+              style={{ color: 'rgba(255,255,255,0.3)' }}
             >
               Non
             </button>
@@ -353,9 +278,9 @@ function DetailPanel({ session, prMap, onDelete, deleting, onSelectExo, selected
           <button
             onClick={() => setConfirmDelete(true)}
             className="text-xs font-bold px-4 py-3 rounded-xl transition-all"
-            style={{ color: 'rgba(var(--ac-lt),0.2)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(var(--ac-lt),0.2)'; e.currentTarget.style.background = 'transparent' }}
+            style={{ color: 'rgba(255,255,255,0.2)', border: '1px solid transparent' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' }}
           >
             Supprimer
           </button>
@@ -363,22 +288,6 @@ function DetailPanel({ session, prMap, onDelete, deleting, onSelectExo, selected
       </div>
     </div>
   )
-}
-
-// Mini wrapper so ProgressChart reacts to exercise changes in the detail panel
-function ProgressChartInline({ exoId }) {
-  const { token } = useAuth()
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!exoId) return
-    setLoading(true)
-    getProgress(token, exoId).then(setData).finally(() => setLoading(false))
-  }, [exoId, token])
-
-  if (loading) return <div className="h-32 rounded-lg animate-pulse" style={{ background: 'rgba(255,255,255,0.03)' }} />
-  return <ProgressChart data={data} />
 }
 
 // ─── Page principale ──────────────────────────────────────────────────────────
@@ -394,20 +303,20 @@ export default function History() {
   const [loadingList, setLoadingList] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [rangeIdx, setRangeIdx] = useState(1)
+  const [showRangeMenu, setShowRangeMenu] = useState(false)
   const detailRef = useRef(null)
 
   useEffect(() => {
     if (!selectedSession || !detailRef.current) return
-    const el = detailRef.current
-    el.style.opacity = '0'
-    animate(el, { opacity: [0, 1], duration: 300, easing: 'easeOutQuad' })
+    animate(detailRef.current, { opacity: [0, 1], translateX: [8, 0], duration: 280, easing: 'easeOutQuad' })
   }, [selectedSession])
 
   useEffect(() => {
     Promise.all([getSessions(token), getPRs(token)])
       .then(([s, prs]) => {
         setSessions(s)
-        setPrMap(Object.fromEntries(prs.map((p) => [p.exercise_id, p.weight_kg])))
+        setPrMap(Object.fromEntries(prs.map(p => [p.exercise_id, p.weight_kg])))
         if (s.length > 0) loadDetail(s[0].id)
       })
       .finally(() => setLoadingList(false))
@@ -418,7 +327,7 @@ export default function History() {
     setLoadingDetail(true)
     setSelectedSession(null)
     getSession(token, id)
-      .then((s) => {
+      .then(s => {
         setSelectedSession(s)
         if (s.exercises.length > 0) setSelectedExoId(s.exercises[0].exercise_id)
       })
@@ -430,7 +339,7 @@ export default function History() {
     setDeleting(true)
     try {
       await deleteSession(token, selectedId)
-      const updated = sessions.filter((s) => s.id !== selectedId)
+      const updated = sessions.filter(s => s.id !== selectedId)
       setSessions(updated)
       setSelectedSession(null)
       setSelectedId(null)
@@ -440,103 +349,234 @@ export default function History() {
     }
   }
 
-  const grouped = groupByMonth(sessions)
+  // Filter by date range
+  const cutoff = RANGE_OPTIONS[rangeIdx].days === 9999
+    ? null
+    : new Date(Date.now() - RANGE_OPTIONS[rangeIdx].days * 86400000)
+
+  const filtered = sessions.filter(s => {
+    if (!cutoff) return true
+    return new Date(s.session_date + 'T00:00:00') >= cutoff
+  })
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
+      className="h-screen flex flex-col overflow-hidden text-white"
+      style={{ background: 'linear-gradient(160deg, #020810 0%, #060d1c 50%, #020810 100%)' }}
     >
-
-      <div className="flex flex-1 overflow-hidden text-white">
-
-        {/* ── LEFT PANEL ───────────────────────────────────────────────────── */}
-        <div
-          className="w-80 shrink-0 flex flex-col overflow-hidden"
-          style={{ borderRight: '1px solid rgba(var(--ac),0.08)' }}
-        >
-          {/* Column headers */}
-          <div
-            className="px-5 py-3 flex items-center gap-4 shrink-0"
-            style={{ borderBottom: '1px solid rgba(var(--ac),0.08)' }}
-          >
-            <span className="text-xs font-bold uppercase tracking-widest flex-1" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>
-              Séance
+      {/* ── Top bar ───────────────────────────────────────────────────────────── */}
+      <div
+        className="shrink-0 flex items-end justify-between px-8 pt-8 pb-6"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+      >
+        {/* Title */}
+        <div>
+          <h1 className="font-black uppercase leading-none" style={{ fontSize: '2.2rem', letterSpacing: '-0.02em' }}>
+            Historique{' '}
+            <span
+              className="italic"
+              style={{
+                background: 'linear-gradient(90deg, rgb(var(--ac-l)), rgb(var(--ac-d)))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              des séances
             </span>
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(var(--ac-lt),0.2)' }}>
-              Durée
-            </span>
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(var(--ac-lt),0.2)' }}>
-              Volume
-            </span>
-          </div>
+          </h1>
+          <p className="text-xs mt-2 font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.2)' }}>
+            Visualise ta progression vers le sommet
+          </p>
+        </div>
 
-          {/* Session list */}
-          <div className="flex-1 overflow-y-auto">
-            {loadingList ? (
-              <div className="p-4 space-y-3">
-                {[0, 1, 2, 3].map((i) => (
-                  <div
+        {/* Filters */}
+        <div className="flex items-center gap-3">
+          {/* Range picker */}
+          <div className="relative">
+            <button
+              onClick={() => setShowRangeMenu(v => !v)}
+              className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.65)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = 'white' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(255,255,255,0.65)' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+              </svg>
+              {RANGE_OPTIONS[rangeIdx].label}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+              </svg>
+            </button>
+            {showRangeMenu && (
+              <div
+                className="absolute right-0 top-full mt-2 rounded-xl overflow-hidden z-50 min-w-max"
+                style={{ background: '#0c1830', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}
+              >
+                {RANGE_OPTIONS.map((opt, i) => (
+                  <button
                     key={i}
-                    className="h-20 rounded-xl animate-pulse"
-                    style={{ background: 'rgba(255,255,255,0.03)' }}
-                  />
+                    onClick={() => { setRangeIdx(i); setShowRangeMenu(false) }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors"
+                    style={{
+                      color: i === rangeIdx ? 'rgb(var(--ac-l))' : 'rgba(255,255,255,0.4)',
+                      background: i === rangeIdx ? 'rgba(var(--ac),0.1)' : 'transparent',
+                    }}
+                    onMouseEnter={e => { if (i !== rangeIdx) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    onMouseLeave={e => { if (i !== rangeIdx) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    {opt.label}
+                  </button>
                 ))}
               </div>
-            ) : sessions.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-sm mb-4" style={{ color: 'rgba(var(--ac-lt),0.25)' }}>Aucune séance enregistrée.</p>
-                <button
-                  onClick={() => navigate('/new')}
-                  className="text-xs font-bold text-white px-4 py-2 rounded-xl"
-                  style={{ background: 'linear-gradient(135deg, rgb(var(--ac-d)), rgb(var(--ac-dd)))' }}
-                >
-                  + Première séance
+            )}
+          </div>
+
+          <button
+            onClick={() => navigate('/new')}
+            className="flex items-center gap-2 text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all"
+            style={{
+              background: 'linear-gradient(135deg, rgba(var(--ac-d),0.9), rgba(var(--ac-dd),0.9))',
+              border: '1px solid rgba(var(--ac),0.4)',
+              color: 'white',
+              boxShadow: '0 4px 16px rgba(var(--ac-d),0.3)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(var(--ac-d),0.5)' }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(var(--ac-d),0.3)' }}
+          >
+            + Nouvelle séance
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── LEFT — session table ─────────────────────────────────────────── */}
+        <div className="flex flex-col overflow-hidden" style={{ width: 460, borderRight: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+
+          {/* Column headers */}
+          <div
+            className="grid shrink-0 px-6 py-3"
+            style={{
+              gridTemplateColumns: '1fr 72px 96px 110px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(0,0,0,0.2)',
+            }}
+          >
+            {['Détail séance', 'Durée', 'Volume', 'Action'].map(h => (
+              <span key={h} className="text-xs font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.18)' }}>
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {/* Rows */}
+          <div className="flex-1 overflow-y-auto">
+            {loadingList ? (
+              <div className="p-4 space-y-2">
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.03)' }} />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.2)' }}>Aucune séance sur cette période.</p>
+                <button onClick={() => navigate('/new')} className="text-xs font-bold px-4 py-2 rounded-xl text-white" style={{ background: 'rgba(var(--ac-d),0.3)', border: '1px solid rgba(var(--ac),0.3)' }}>
+                  + Ajouter
                 </button>
               </div>
             ) : (
-              Object.entries(grouped).map(([month, monthSessions]) => (
-                <div key={month}>
+              filtered.map((s, i) => {
+                const isSelected = s.id === selectedId
+                const prCount = s.pr_count ?? 0
+                return (
                   <div
-                    className="px-5 py-2 flex items-center gap-2"
-                    style={{ background: 'rgba(0,0,0,0.15)' }}
+                    key={s.id}
+                    onClick={() => loadDetail(s.id)}
+                    className="grid items-center px-5 py-4 cursor-pointer transition-all mx-3 my-1 rounded-2xl"
+                    style={{
+                      gridTemplateColumns: '1fr 72px 96px 110px',
+                      background: isSelected ? 'rgba(var(--ac-d),0.14)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${isSelected ? 'rgba(var(--ac),0.3)' : 'rgba(255,255,255,0.04)'}`,
+                      boxShadow: isSelected ? '0 0 0 1px rgba(var(--ac),0.1) inset' : 'none',
+                    }}
+                    onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' } }}
+                    onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)' } }}
                   >
-                    <span
-                      className="text-xs font-bold uppercase tracking-widest"
-                      style={{ color: 'rgba(var(--ac-lt),0.25)' }}
-                    >
-                      {month}
-                    </span>
-                    <div className="flex-1 h-px" style={{ background: 'rgba(var(--ac),0.06)' }} />
+                    {/* Séance detail */}
+                    <div className="min-w-0 pr-3">
+                      <p className="text-xs font-bold mb-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                        {formatDateShort(s.session_date)}
+                      </p>
+                      <p className="font-black uppercase text-white text-sm truncate leading-tight tracking-tight">
+                        {s.name || 'Séance sans nom'}
+                      </p>
+                    </div>
+
+                    {/* Duration */}
+                    <div>
+                      <span className="font-bold text-sm text-white">{s.duration_min ?? '—'}</span>
+                      {s.duration_min && <span className="text-xs ml-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>min</span>}
+                    </div>
+
+                    {/* Volume */}
+                    <div>
+                      {s.volume > 0 ? (
+                        <>
+                          <span className="font-bold text-sm text-white">
+                            {s.volume >= 1000 ? `${(s.volume / 1000).toFixed(1)}t` : Math.round(s.volume).toLocaleString('fr-FR')}
+                          </span>
+                          <span className="text-xs ml-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>kg</span>
+                        </>
+                      ) : <span style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>}
+                    </div>
+
+                    {/* Action */}
+                    <div>
+                      <span
+                        className="text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all"
+                        style={{
+                          background: isSelected ? 'rgba(var(--ac),0.2)' : 'rgba(255,255,255,0.06)',
+                          color: isSelected ? 'rgb(var(--ac-l))' : 'rgba(255,255,255,0.35)',
+                          border: `1px solid ${isSelected ? 'rgba(var(--ac),0.3)' : 'rgba(255,255,255,0.07)'}`,
+                        }}
+                      >
+                        {isSelected ? 'Vue active' : 'Voir →'}
+                      </span>
+                    </div>
                   </div>
-                  {monthSessions.map((s) => (
-                    <SessionCard
-                      key={s.id}
-                      session={s}
-                      isSelected={s.id === selectedId}
-                      onClick={() => loadDetail(s.id)}
-                    />
-                  ))}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
+
+          {/* Footer count */}
+          {filtered.length > 0 && (
+            <div
+              className="shrink-0 px-6 py-3 flex items-center"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.04)', background: 'rgba(0,0,0,0.15)' }}
+            >
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.15)' }}>
+                {filtered.length} séance{filtered.length > 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto">
+        {/* ── RIGHT — detail panel ─────────────────────────────────────────── */}
+        <div className="flex-1 overflow-hidden flex flex-col">
           {loadingDetail ? (
-            <div className="p-7 space-y-4 max-w-lg">
-              {[60, 120, 200, 80].map((h, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl animate-pulse"
-                  style={{ height: `${h}px`, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(var(--ac),0.06)' }}
-                />
+            <div className="p-8 space-y-4 flex-1">
+              {[80, 130, 200, 100].map((h, i) => (
+                <div key={i} className="rounded-xl animate-pulse" style={{ height: h, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }} />
               ))}
             </div>
           ) : selectedSession ? (
-            <div ref={detailRef}>
+            <div ref={detailRef} className="flex-1 overflow-hidden flex flex-col">
               <DetailPanel
                 session={selectedSession}
                 prMap={prMap}
@@ -547,17 +587,17 @@ export default function History() {
               />
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center h-full text-center p-10">
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-10">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                style={{ background: 'rgba(var(--ac-dd),0.15)', border: '1px solid rgba(var(--ac),0.1)' }}
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="rgba(var(--ac),0.3)">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="rgba(255,255,255,0.2)">
                   <path d="M20 6h-2.18c.07-.44.18-.86.18-1 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .14.11.56.18 1H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-3c1.1 0 2 .9 2 2 0 .14-.15.86-.26 1h-3.48c-.11-.14-.26-.86-.26-1 0-1.1.9-2 2-2zm6 17H8V8h2v2h8V8h2v12z"/>
                 </svg>
               </div>
-              <p className="font-semibold text-sm" style={{ color: 'rgba(var(--ac-lt),0.25)' }}>
-                Sélectionne une séance
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                Sélectionne une séance pour voir les détails
               </p>
             </div>
           )}

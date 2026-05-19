@@ -39,3 +39,8 @@ export async function getRecentSessions(token) {
   const res = await fetch(`${API}/api/sessions/recent`, { headers: authHeaders(token) })
   return handleResponse(res)
 }
+
+export async function getLastSession(token, exerciseId) {
+  const res = await fetch(`${API}/api/stats/last-session/${exerciseId}`, { headers: authHeaders(token) })
+  return handleResponse(res)
+}
