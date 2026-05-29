@@ -4,15 +4,25 @@ import { CATEGORIES, ALL_BADGES } from '../data/badges.jsx'
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
+const INITIAL_VISIBLE = 12
+
 export default function Badges({ stats }) {
   const [activeCategory, setActiveCategory] = useState('all')
+  const [showAll, setShowAll] = useState(false)
   const gridRef = useRef(null)
 
   const badges = activeCategory === 'all'
     ? ALL_BADGES
     : (CATEGORIES.find(c => c.id === activeCategory)?.badges ?? [])
 
+  const visibleBadges = showAll ? badges : badges.slice(0, INITIAL_VISIBLE)
+  const hiddenCount = badges.length - INITIAL_VISIBLE
+
   const unlocked = ALL_BADGES.filter(b => stats && b.check(stats)).length
+
+  useEffect(() => {
+    setShowAll(false)
+  }, [activeCategory])
 
   useEffect(() => {
     if (!gridRef.current || !stats) return
@@ -23,7 +33,7 @@ export default function Badges({ stats }) {
         animate(el, { opacity: [0, 1], scale: [0.75, 1], duration: 320, delay: i * 18, easing: 'easeOutBack' })
       })
     })
-  }, [stats, activeCategory])
+  }, [stats, activeCategory, showAll])
 
   if (!stats) return null
 
@@ -90,7 +100,7 @@ export default function Badges({ stats }) {
         className="grid gap-2"
         style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))' }}
       >
-        {badges.map(badge => {
+        {visibleBadges.map(badge => {
           const earned = stats && badge.check(stats)
           return (
             <div
@@ -131,6 +141,23 @@ export default function Badges({ stats }) {
           )
         })}
       </div>
+
+      {/* Voir plus / Voir moins */}
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setShowAll(v => !v)}
+          className="mt-3 w-full text-xs font-bold py-2.5 rounded-xl transition-all"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            color: 'rgba(var(--ac-lt),0.4)',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'rgb(var(--ac-lt))'; e.currentTarget.style.borderColor = 'rgba(var(--ac),0.2)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(var(--ac-lt),0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
+        >
+          {showAll ? 'Voir moins ↑' : `Voir ${hiddenCount} de plus ↓`}
+        </button>
+      )}
     </div>
   )
 }

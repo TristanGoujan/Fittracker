@@ -140,56 +140,58 @@ export default function ActivityGrid({ data }) {
         </div>
       ) : (
         /* ── Vue multi-semaines : grille heatmap ── */
-        <>
-          {months.length > 0 && (
-            <div
-              className="grid h-4 mb-1"
-              style={{ gridTemplateColumns: `repeat(${totalCols}, 1fr)` }}
-            >
-              {months.map((m) => (
-                <span
-                  key={m.label + m.col}
-                  style={{ gridColumn: m.col, color: 'rgba(var(--ac-lt),0.3)', fontSize: '10px' }}
-                >
-                  {m.label}
-                </span>
-              ))}
-            </div>
-          )}
+        <div className="overflow-x-auto -mx-2 px-2">
+          <div style={{ minWidth: Math.max(totalCols * 13, 280) + 'px' }}>
+            {months.length > 0 && (
+              <div
+                className="grid h-4 mb-1"
+                style={{ gridTemplateColumns: `repeat(${totalCols}, 1fr)` }}
+              >
+                {months.map((m) => (
+                  <span
+                    key={m.label + m.col}
+                    style={{ gridColumn: m.col, color: 'rgba(var(--ac-lt),0.3)', fontSize: '10px' }}
+                  >
+                    {m.label}
+                  </span>
+                ))}
+              </div>
+            )}
 
-          <div className="flex gap-2" style={{ height: '112px' }}>
-            <div
-              className="grid shrink-0"
-              style={{ gridTemplateRows: 'repeat(7, 1fr)', fontSize: '10px', color: 'rgba(var(--ac-lt),0.25)' }}
-            >
-              {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
-                <span key={i} className="flex items-center leading-none">{d}</span>
-              ))}
-            </div>
+            <div className="flex gap-2" style={{ height: '112px' }}>
+              <div
+                className="grid shrink-0"
+                style={{ gridTemplateRows: 'repeat(7, 1fr)', fontSize: '10px', color: 'rgba(var(--ac-lt),0.25)' }}
+              >
+                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+                  <span key={i} className="flex items-center leading-none">{d}</span>
+                ))}
+              </div>
 
-            <div
-              ref={gridRef}
-              className="grid gap-0.5 flex-1"
-              style={{
-                gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
-                gridTemplateRows: 'repeat(7, 1fr)',
-                gridAutoFlow: 'column',
-              }}
-            >
-              {Array(offset).fill(null).map((_, i) => (
-                <div key={`pad-${i}`} />
-              ))}
-              {allDays.map((day) => (
-                <div
-                  key={day.date}
-                  title={`${day.date} — ${day.count} séance${day.count > 1 ? 's' : ''}`}
-                  className="rounded-sm"
-                  style={intensityStyle(day.count)}
-                />
-              ))}
+              <div
+                ref={gridRef}
+                className="grid gap-0.5 flex-1"
+                style={{
+                  gridTemplateColumns: `repeat(${totalCols}, 1fr)`,
+                  gridTemplateRows: 'repeat(7, 1fr)',
+                  gridAutoFlow: 'column',
+                }}
+              >
+                {Array(offset).fill(null).map((_, i) => (
+                  <div key={`pad-${i}`} />
+                ))}
+                {allDays.map((day) => (
+                  <div
+                    key={day.date}
+                    title={`${day.date} — ${day.count} séance${day.count > 1 ? 's' : ''}`}
+                    className="rounded-sm"
+                    style={intensityStyle(day.count)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Légende */}

@@ -192,9 +192,8 @@ export default function Navbar() {
 
   return (
     <aside
-      className="hidden md:flex shrink-0 flex-col h-full overflow-y-auto overflow-x-hidden"
+      className="hidden md:flex md:w-56 lg:w-64 shrink-0 flex-col h-full overflow-y-auto overflow-x-hidden"
       style={{
-        width: 220,
         borderRight: '1px solid rgba(var(--ac),0.08)',
         background: 'rgba(2,8,16,0.6)',
         backdropFilter: 'blur(20px)',

@@ -1026,18 +1026,25 @@ export default function NewSession() {
         {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
         <div className="flex-1 flex flex-col p-5 md:p-10 md:overflow-y-auto">
           {!activeEx ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <button
+              type="button"
+              onClick={addExercise}
+              className="flex-1 flex flex-col items-center justify-center text-center w-full rounded-2xl transition-all group"
+              style={{ border: '1px dashed rgba(var(--ac),0.1)' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(var(--ac),0.35)'; e.currentTarget.style.background = 'rgba(var(--ac),0.03)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(var(--ac),0.1)'; e.currentTarget.style.background = 'transparent' }}
+            >
               <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                style={{ background: 'rgba(var(--ac-dd),0.15)', border: '1px solid rgba(var(--ac),0.1)' }}
+                className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all group-hover:scale-110"
+                style={{ background: 'rgba(var(--ac-dd),0.15)', border: '1px solid rgba(var(--ac),0.15)' }}
               >
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="rgba(var(--ac),0.3)">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="rgba(var(--ac),0.5)">
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                 </svg>
               </div>
-              <p className="font-semibold" style={{ color: 'rgba(var(--ac-lt),0.25)' }}>Aucun exercice</p>
-              <p className="text-sm mt-2" style={{ color: 'rgba(var(--ac-lt),0.12)' }}>Ajoute un exercice pour commencer</p>
-            </div>
+              <p className="font-bold" style={{ color: 'rgba(var(--ac-lt),0.5)' }}>Ajouter un exercice</p>
+              <p className="text-sm mt-1" style={{ color: 'rgba(var(--ac-lt),0.2)' }}>Appuie pour ouvrir le catalogue</p>
+            </button>
           ) : (
             <div className="max-w-xl w-full">
               {/* SET indicator */}
