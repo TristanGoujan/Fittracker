@@ -1,11 +1,11 @@
-import { useReducer, useEffect, useRef, useState, useCallback } from 'react'
+﻿import { useReducer, useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { animate } from 'animejs'
 import { createSession } from '../api/sessions'
 import { getLastSession } from '../api/stats'
 import { useAuth } from '../hooks/useAuth'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API = import.meta.env.VITE_API_URL ?? ''
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
