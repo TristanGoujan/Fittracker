@@ -39,6 +39,25 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
+// ── Initialisation du schéma ─────────────────────────────────────────────────
+// On Vercel (serverless), chaque cold start doit attendre que les tables
+// existent avant de traiter la première requête.
+let _initPromise = null
+
+function getInitPromise() {
+  if (!_initPromise) _initPromise = initSchema()
+  return _initPromise
+}
+
+app.use((req, res, next) => {
+  getInitPromise()
+    .then(() => next())
+    .catch((err) => {
+      console.error('Erreur init schéma:', err)
+      res.status(500).json({ error: 'Erreur initialisation base de données' })
+    })
+})
+
 // Export pour Vercel serverless
 module.exports = app
 
@@ -48,7 +67,4 @@ if (require.main === module) {
   initSchema()
     .then(() => app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`)))
     .catch((err) => { console.error("Impossible d'initialiser la base de données:", err); process.exit(1) })
-} else {
-  // Sur Vercel : init du schéma au démarrage du cold start
-  initSchema().catch((err) => console.error('Erreur init schéma:', err))
 }
