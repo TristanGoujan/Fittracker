@@ -29,8 +29,14 @@ app.use('/api/social', require('./routes/social'))
 app.use('/api/leaderboard', require('./routes/leaderboard'))
 app.use('/api/profile', require('./routes/profile'))
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' })
+app.get('/api/health', async (req, res) => {
+  try {
+    const pool = require('./db/pool')
+    await pool.query('SELECT 1')
+    res.json({ status: 'ok', db: 'connected' })
+  } catch (err) {
+    res.status(500).json({ status: 'error', db: err.message })
+  }
 })
 
 // Export pour Vercel serverless
