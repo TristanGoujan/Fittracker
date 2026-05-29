@@ -528,16 +528,6 @@ npm install
 npm run dev       # Vite sur http://localhost:5173
 ```
 
-### Variables d'environnement (copier .env.example → .env)
-
-```
-DATABASE_URL=postgresql://postgres:password@localhost:5432/fittracker
-JWT_SECRET=un_secret_tres_long_a_changer
-PORT=3001
-```
-
----
-
 ## Bonnes pratiques Git
 
 - Une branche par jalon : `git checkout -b feature/auth`
