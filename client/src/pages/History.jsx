@@ -363,7 +363,8 @@ export default function History() {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden text-white"
+      className="flex flex-col overflow-hidden text-white"
+      style={{ height: '100dvh' }}
       style={{ background: 'linear-gradient(160deg, #020810 0%, #060d1c 50%, #020810 100%)' }}
     >
       {/* ── Top bar ───────────────────────────────────────────────────────────── */}

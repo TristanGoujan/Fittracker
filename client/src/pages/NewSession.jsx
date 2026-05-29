@@ -1,4 +1,4 @@
-﻿import { useReducer, useEffect, useRef, useState, useCallback } from 'react'
+﻿import { useReducer, useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { animate } from 'animejs'
 import { createSession } from '../api/sessions'
@@ -713,26 +713,6 @@ export default function NewSession() {
     return () => clearInterval(id)
   }, [])
 
-  // ── Chronomètre de repos ─────────────────────────────────────────────────────
-  const [rest, setRest] = useState({ active: false, total: 90, remaining: 90 })
-  const restIntervalRef = useRef(null)
-
-  const startRest = useCallback((seconds) => {
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current)
-    setRest({ active: true, total: seconds, remaining: seconds })
-    restIntervalRef.current = setInterval(() => {
-      setRest((prev) => {
-        if (prev.remaining <= 1) {
-          clearInterval(restIntervalRef.current)
-          return { ...prev, active: false, remaining: 0 }
-        }
-        return { ...prev, remaining: prev.remaining - 1 }
-      })
-    }, 1000)
-  }, [])
-
-  useEffect(() => () => { if (restIntervalRef.current) clearInterval(restIntervalRef.current) }, [])
-
   // ── Dernière perf par exercice ───────────────────────────────────────────────
   const [lastPerf, setLastPerf] = useState({})
 
@@ -803,8 +783,6 @@ export default function NewSession() {
   }
 
   function validateSet() {
-    const restSecs = activeEx?.rest_seconds ?? 90
-    startRest(restSecs)
     if (activeSetIdx < activeEx.sets.length - 1) {
       setActiveSetIdx((i) => i + 1)
     } else {
@@ -1118,51 +1096,6 @@ export default function NewSession() {
                 </button>
               )}
 
-              {/* Chronomètre de repos */}
-              {rest.active && (
-                <div
-                  className="mb-6 rounded-2xl px-5 py-4 flex items-center justify-between"
-                  style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ background: 'rgba(59,130,246,0.15)' }}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="#60a5fa">
-                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-widest" style={{ color: 'rgba(147,197,253,0.45)' }}>Repos</p>
-                      <p className="text-2xl font-black tabular-nums text-white leading-none">{fmtElapsed(rest.remaining)}</p>
-                    </div>
-                  </div>
-                  {/* Barre de progression */}
-                  <div className="flex-1 mx-4 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.15)' }}>
-                    <div
-                      className="h-full rounded-full transition-all duration-1000"
-                      style={{
-                        width: `${(rest.remaining / rest.total) * 100}%`,
-                        background: rest.remaining > rest.total * 0.3
-                          ? 'linear-gradient(90deg, #3b82f6, #60a5fa)'
-                          : 'linear-gradient(90deg, #f97316, #fb923c)',
-                      }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { if (restIntervalRef.current) clearInterval(restIntervalRef.current); setRest((r) => ({ ...r, active: false })) }}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
-                    style={{ background: 'rgba(59,130,246,0.12)', color: 'rgba(147,197,253,0.6)', border: '1px solid rgba(59,130,246,0.2)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = 'white' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(147,197,253,0.6)' }}
-                  >
-                    Passer
-                  </button>
-                </div>
-              )}
-
               {/* Dernière perf */}
               {currentLastPerf && currentLastPerf.length > 0 && (
                 <div
@@ -1209,25 +1142,6 @@ export default function NewSession() {
                     dispatch({ type: 'UPDATE_SET', index: activeExIdx, setIndex: activeSetIdx, field: 'reps', value: val })
                   }
                 />
-              </div>
-
-              {/* Repos */}
-              <div className="flex items-center gap-3 mb-8">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="rgba(var(--ac-lt),0.3)">
-                  <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                </svg>
-                <span className="text-xs uppercase tracking-wider" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>Repos</span>
-                <input
-                  type="number"
-                  value={activeEx.rest_seconds}
-                  onChange={(e) =>
-                    dispatch({ type: 'SET_EXERCISE_FIELD', index: activeExIdx, field: 'rest_seconds', value: Number(e.target.value) })
-                  }
-                  className="w-16 text-white text-sm rounded-lg px-2 py-1.5 outline-none text-center"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--ac),0.12)' }}
-                  min="0"
-                />
-                <span className="text-xs" style={{ color: 'rgba(var(--ac-lt),0.3)' }}>sec</span>
               </div>
 
               {/* Validate button */}

@@ -3,3 +3,13 @@
 html, body {
   background-color: #020810;
 }
+
+/* iOS Safari : empêche le zoom automatique sur focus des inputs */
+input, textarea, select {
+  font-size: 16px;
+}
+
+/* iOS Safari : safe-area pour éviter que la bottom nav chevauche le contenu */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
