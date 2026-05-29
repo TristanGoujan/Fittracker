@@ -305,6 +305,7 @@ export default function History() {
   const [deleting, setDeleting] = useState(false)
   const [rangeIdx, setRangeIdx] = useState(1)
   const [showRangeMenu, setShowRangeMenu] = useState(false)
+  const [mobileView, setMobileView] = useState('list')
   const detailRef = useRef(null)
 
   useEffect(() => {
@@ -326,6 +327,7 @@ export default function History() {
     setSelectedId(id)
     setLoadingDetail(true)
     setSelectedSession(null)
+    setMobileView('detail')
     getSession(token, id)
       .then(s => {
         setSelectedSession(s)
@@ -366,12 +368,24 @@ export default function History() {
     >
       {/* ── Top bar ───────────────────────────────────────────────────────────── */}
       <div
-        className="shrink-0 flex items-end justify-between px-8 pt-8 pb-6"
+        className="shrink-0 flex items-end justify-between px-4 md:px-8 pt-6 md:pt-8 pb-4 md:pb-6 gap-3"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
       >
-        {/* Title */}
-        <div>
-          <h1 className="font-black uppercase leading-none" style={{ fontSize: '2.2rem', letterSpacing: '-0.02em' }}>
+        {/* Title — back button on mobile detail view */}
+        <div className="min-w-0">
+          {mobileView === 'detail' && (
+            <button
+              onClick={() => setMobileView('list')}
+              className="flex items-center gap-1.5 text-xs font-bold mb-2 md:hidden"
+              style={{ color: 'rgba(var(--ac-l),0.6)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+              </svg>
+              Retour à la liste
+            </button>
+          )}
+          <h1 className="font-black uppercase leading-none truncate" style={{ fontSize: 'clamp(1.4rem, 5vw, 2.2rem)', letterSpacing: '-0.02em' }}>
             Historique{' '}
             <span
               className="italic"
@@ -384,13 +398,13 @@ export default function History() {
               des séances
             </span>
           </h1>
-          <p className="text-xs mt-2 font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.2)' }}>
+          <p className="hidden md:block text-xs mt-2 font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.2)' }}>
             Visualise ta progression vers le sommet
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-3">
+        {/* Filters — hidden on mobile detail view */}
+        <div className={`flex items-center gap-3 shrink-0 ${mobileView === 'detail' ? 'hidden md:flex' : ''}`}>
           {/* Range picker */}
           <div className="relative">
             <button
@@ -456,7 +470,10 @@ export default function History() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── LEFT — session table ─────────────────────────────────────────── */}
-        <div className="flex flex-col overflow-hidden" style={{ width: 460, borderRight: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
+        <div
+          className={`${mobileView === 'detail' ? 'hidden md:flex' : 'flex'} flex-col overflow-hidden w-full md:w-115 md:shrink-0`}
+          style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}
+        >
 
           {/* Column headers */}
           <div
@@ -568,7 +585,7 @@ export default function History() {
         </div>
 
         {/* ── RIGHT — detail panel ─────────────────────────────────────────── */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className={`${mobileView === 'list' ? 'hidden md:flex' : 'flex'} flex-1 overflow-hidden flex-col`}>
           {loadingDetail ? (
             <div className="p-8 space-y-4 flex-1">
               {[80, 130, 200, 100].map((h, i) => (

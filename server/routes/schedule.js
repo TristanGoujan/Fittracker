@@ -12,7 +12,6 @@ router.get('/', async (req, res) => {
       'SELECT day_of_week, label FROM weekly_schedule WHERE user_id = $1 ORDER BY day_of_week',
       [req.user.id]
     )
-    // Return sparse array — client fills gaps with 'Repos'
     res.json(result.rows)
   } catch (err) {
     console.error('Erreur get schedule:', err)
@@ -22,25 +21,34 @@ router.get('/', async (req, res) => {
 
 // PUT /api/schedule — upsert full week (array of {day_of_week, label})
 router.put('/', async (req, res) => {
-  const { days } = req.body // [{day_of_week: 0, label: 'Push'}, ...]
+  const { days } = req.body
   if (!Array.isArray(days) || days.length !== 7) {
     return res.status(400).json({ error: '7 jours requis' })
   }
+
+  const client = await pool.connect()
   try {
-    // Delete then reinsert for simplicity
-    await pool.query('DELETE FROM weekly_schedule WHERE user_id = $1', [req.user.id])
+    await client.query('BEGIN')
+
+    await client.query('DELETE FROM weekly_schedule WHERE user_id = $1', [req.user.id])
+
     for (const { day_of_week, label } of days) {
       if (label && label !== 'Repos' && label !== '') {
-        await pool.query(
+        await client.query(
           'INSERT INTO weekly_schedule (user_id, day_of_week, label) VALUES ($1, $2, $3)',
           [req.user.id, day_of_week, label]
         )
       }
     }
+
+    await client.query('COMMIT')
     res.json({ success: true })
   } catch (err) {
+    await client.query('ROLLBACK')
     console.error('Erreur save schedule:', err)
     res.status(500).json({ error: 'Erreur serveur' })
+  } finally {
+    client.release()
   }
 })
 

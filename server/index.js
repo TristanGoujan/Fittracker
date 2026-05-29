@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const helmet = require('helmet')
 require('dotenv').config()
 
 const initSchema = require('./db/schema')
@@ -10,6 +11,7 @@ const statsRoutes = require('./routes/stats')
 const bodyweightRoutes = require('./routes/bodyweight')
 
 const app = express()
+app.use(helmet())
 app.use(cors())
 app.use(express.json())
 

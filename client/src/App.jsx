@@ -12,6 +12,7 @@ import Profile from './pages/Profile'
 import Programs from './pages/Programs'
 import Social from './pages/Social'
 import FriendProfile from './pages/FriendProfile'
+import NotFound from './pages/NotFound'
 
 export default function App() {
   return (
@@ -32,7 +33,7 @@ export default function App() {
           <Route path="/social"        element={<Social />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
     </ThemeProvider>

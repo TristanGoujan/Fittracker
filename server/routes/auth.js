@@ -226,6 +226,9 @@ router.put('/password', async (req, res) => {
 
   try {
     const userRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id])
+    if (!userRes.rows[0]) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' })
+    }
     const match = await bcrypt.compare(current_password, userRes.rows[0].password)
 
     if (!match) {
@@ -252,6 +255,9 @@ router.delete('/account', async (req, res) => {
 
   try {
     const userRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id])
+    if (!userRes.rows[0]) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' })
+    }
     const match = await bcrypt.compare(password, userRes.rows[0].password)
 
     if (!match) {

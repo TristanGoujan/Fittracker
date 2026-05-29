@@ -874,12 +874,11 @@ export default function NewSession() {
       style={{ background: 'linear-gradient(135deg, #020810 0%, #07101f 40%, #050c1a 70%, #020810 100%)' }}
     >
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 md:overflow-hidden">
 
         {/* ── LEFT PANEL ───────────────────────────────────────────────────── */}
         <div
-          className="w-72 shrink-0 flex flex-col p-5 overflow-y-auto"
-          style={{ borderRight: '1px solid rgba(59, 130, 246, 0.08)' }}
+          className="w-full md:w-72 md:shrink-0 flex flex-col p-5 md:overflow-y-auto border-b md:border-b-0 md:border-r border-blue-900/10"
         >
           {/* Timer de séance */}
           <div
@@ -1047,7 +1046,7 @@ export default function NewSession() {
         </div>
 
         {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col p-10 overflow-y-auto">
+        <div className="flex-1 flex flex-col p-5 md:p-10 md:overflow-y-auto">
           {!activeEx ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               <div

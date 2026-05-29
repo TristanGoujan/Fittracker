@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "dev": "nodemon index.js",
-  "start": "node index.js"
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "kill-port": "node -e \"const { execSync } = require('child_process'); try { execSync('powershell -Command \\\"Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }\\\"') } catch(e) {}\""
   },
   "keywords": [],
   "author": "",
@@ -16,6 +17,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0"
   },

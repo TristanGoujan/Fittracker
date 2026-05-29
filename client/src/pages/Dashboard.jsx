@@ -288,8 +288,10 @@ export default function Dashboard() {
   const [schedule, setSchedule] = useState([])
   const [hasSchedule, setHasSchedule] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
+    setError(null)
     Promise.all([
       getSummary(token),
       getVolume(token, 7),
@@ -312,6 +314,7 @@ export default function Dashboard() {
         setSchedule(labels)
         setHasSchedule(schedRows.length > 0)
       })
+      .catch(() => setError('Impossible de contacter le serveur. Vérifie ta connexion.'))
       .finally(() => setLoading(false))
   }, [token])
 
@@ -323,6 +326,18 @@ export default function Dashboard() {
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
         <HeroSection user={user} schedule={schedule} hasSchedule={hasSchedule} />
+
+        {error && (
+          <div
+            className="rounded-2xl px-5 py-4 flex items-center gap-3"
+            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#f87171" className="shrink-0">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+            <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>
+          </div>
+        )}
 
         {loading ? (
           <div className="grid grid-cols-4 gap-4">
