@@ -104,13 +104,13 @@ export default function ActivityGrid({ data }) {
 
       {days === 7 ? (
         /* ── Vue 7 jours : carrés en ligne horizontale ── */
-        <div ref={weekRef} className="flex justify-around py-2">
+        <div ref={weekRef} className="flex gap-1 py-2">
           {allDays.map((day) => {
             const d = new Date(day.date + 'T00:00:00')
             const dayIdx = (d.getDay() + 6) % 7
             const isToday = day.date === today.toISOString().split('T')[0]
             return (
-              <div key={day.date} className="flex flex-col items-center gap-1.5">
+              <div key={day.date} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
                 <span
                   style={{
                     color: isToday ? 'rgb(var(--ac-lt))' : 'rgba(var(--ac-lt),0.3)',
@@ -124,8 +124,9 @@ export default function ActivityGrid({ data }) {
                   title={`${day.date} — ${day.count} séance${day.count > 1 ? 's' : ''}`}
                   style={{
                     ...intensityStyle(day.count),
-                    width: 48,
-                    height: 48,
+                    width: '100%',
+                    maxWidth: 48,
+                    aspectRatio: '1 / 1',
                     borderRadius: 6,
                     outline: isToday ? '2px solid rgba(var(--ac),0.5)' : 'none',
                     outlineOffset: 2,

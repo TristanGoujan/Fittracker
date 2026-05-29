@@ -242,8 +242,8 @@ export default function Navbar() {
         ))}
       </nav>
 
-      {/* ── Spacer ── */}
-      <div className="flex-1" />
+      {/* ── Spacer — limité pour éviter un vide énorme sur grands écrans ── */}
+      <div className="flex-1 max-h-32" />
 
       {/* ── CTA button ── */}
       <div className="px-3 pb-3 shrink-0">
