@@ -33,13 +33,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
-const PORT = process.env.PORT || 3001
+// Export pour Vercel serverless
+module.exports = app
 
-initSchema()
-  .then(() => {
-    app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`))
-  })
-  .catch((err) => {
-    console.error("Impossible d'initialiser la base de données:", err)
-    process.exit(1)
-  })
+// Démarrage local uniquement
+if (require.main === module) {
+  const PORT = process.env.PORT || 3001
+  initSchema()
+    .then(() => app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`)))
+    .catch((err) => { console.error("Impossible d'initialiser la base de données:", err); process.exit(1) })
+} else {
+  // Sur Vercel : init du schéma au démarrage du cold start
+  initSchema().catch((err) => console.error('Erreur init schéma:', err))
+}
