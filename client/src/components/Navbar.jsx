@@ -9,35 +9,35 @@ import { getFriendRequests } from '../api/friends'
 
 function IconHome() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
     </svg>
   )
 }
 function IconHistory() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
     </svg>
   )
 }
 function IconSocial() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
     </svg>
   )
 }
 function IconPrograms() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
     </svg>
   )
 }
 function IconProfile() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
     </svg>
   )
@@ -133,10 +133,10 @@ function NavItem({ to, label, Icon, exact, pendingCount }) {
       style={({ isActive }) => ({
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '9px 12px',
-        borderRadius: 12,
-        fontSize: 14,
+        gap: 13,
+        padding: '14px 16px',
+        borderRadius: 14,
+        fontSize: 15,
         fontWeight: isActive ? 700 : 500,
         color: isActive ? 'white' : hovered ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.4)',
         background: isActive ? 'rgba(var(--ac),0.1)' : hovered ? 'rgba(255,255,255,0.04)' : 'transparent',
@@ -236,14 +236,14 @@ export default function Navbar() {
       </Link>
 
       {/* ── Nav items ── */}
-      <nav className="flex flex-col gap-0.5 px-3 mt-3">
+      <nav className="flex flex-col gap-1 px-3 mt-3">
         {NAV_ITEMS.map(({ to, label, Icon, exact }) => (
           <NavItem key={to} to={to} label={label} Icon={Icon} exact={exact} pendingCount={label === 'Social' ? pendingCount : 0} />
         ))}
       </nav>
 
-      {/* ── Spacer — limité pour éviter un vide énorme sur grands écrans ── */}
-      <div className="flex-1 max-h-32" />
+      {/* ── Spacer ── */}
+      <div className="flex-1" />
 
       {/* ── CTA button ── */}
       <div className="px-3 pb-3 shrink-0">
